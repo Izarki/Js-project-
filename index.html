@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Chat Socket.IO</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  body { font-family: Arial; max-width: 600px; margin: 30px auto; }
+  #messages { border: 1px solid #aaa; padding: 10px; height: 300px; overflow-y: scroll; }
+</style>
+</head>
+
+<body>
+
+<h2>Messagerie</h2>
+
+Votre nom : <input id="nom" type="text">
+<button onclick="entrer()">Entrer</button>
+
+<div id="chat" style="display:none;">
+  <h3>Messages :</h3>
+  <div id="messages"></div>
+
+  <input id="msg" type="text" placeholder="Écrire un message...">
+  <button onclick="envoyer()">Envoyer</button>
+</div>
+
+<script>
+  const socket = io();
+
+  function entrer() {
+    socket.emit('entrer', nom.value);
+    document.getElementById('chat').style.display = 'block';
+  }
+
+  // Quand on est accepté
+  socket.on('bienvenue', data => {
+    ajouterMessage(` Bienvenue ${data.nom} !`);
+  });
+
+  // Quand un nouvel utilisateur arrive
+  socket.on('nouveau', nom => {
+    ajouterMessage(`${nom} a rejoint le chat`);
+  });
+
+  // Quand quelqu’un envoie un message
+  socket.on('message', data => {
+    ajouterMessage(`${data.auteur} : ${data.texte}`);
+  });
+
+  // Quand un utilisateur part
+  socket.on('depart', nom => {
+    ajouterMessage(`${nom} est parti`);
+  });
+
+  function envoyer() {
+    socket.emit('message', msg.value);
+    msg.value = "";
+  }
+
+  function ajouterMessage(txt) {
+    const div = document.getElementById('messages');
+    div.innerHTML += txt + "<br>";
+    div.scrollTop = div.scrollHeight;
+  }
+</script>
+
+</body>
+</html>
