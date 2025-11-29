@@ -4,6 +4,7 @@ const http = require('http');
 const server = http.createServer(app);
 const io = new require("socket.io")(server);
 
+
 app.get('/', (req, res) => {
   res.sendFile("index.html", { root: __dirname });
 });
@@ -15,13 +16,25 @@ server.listen(8888, () => {
 // Liste des utilisateurs connectés
 let utilisateurs = [];
 
+  //On regarde le nombre d'utilisateur
+
 io.on('connection', (socket) => {
   console.log("Un utilisateur s'est connecté");
+
+    //check le nb d'utilisateur
+    if (utilisateurs.length >=2){
+    socket.emit("refus","Le salon est plein");
+    socket.disconnect();
+    return;
+  }
+
 
   // Quand un utilisateur choisit son nom
   socket.on('entrer', (nom) => {
     socket.nom = nom;
     utilisateurs.push(nom);
+
+    io.emit('NbUser',utilisateurs.length);
 
     // On envoie à cet utilisateur la liste des utilisateurs
     socket.emit('bienvenue', { nom, utilisateurs });
@@ -39,5 +52,9 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     utilisateurs = utilisateurs.filter(n => n !== socket.nom);
     io.emit('depart', socket.nom);
+    io.emit('NbUser',utilisateurs.length);
   });
+
+
+  
 });
