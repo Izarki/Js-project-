@@ -15,22 +15,20 @@ server.listen(8888, () => {
 
 // Liste des utilisateurs connectés
 let utilisateurs = [];
-
-  //On regarde le nombre d'utilisateur
+const MAX_USERS = 3; // limite à 3 joueurs
 
 io.on('connection', (socket) => {
   console.log("Un utilisateur s'est connecté");
 
-    //check le nb d'utilisateur
-    if (utilisateurs.length >=2){
-    socket.emit("refus","Le salon est plein");
-    socket.disconnect();
-    return;
-  }
-
-
   // Quand un utilisateur choisit son nom
   socket.on('entrer', (nom) => {
+    // Vérifier la capacité au moment où l'utilisateur tente d'entrer (après avoir fourni un nom)
+    if (utilisateurs.length >= MAX_USERS) {
+      socket.emit("refus","Le salon est plein");
+      socket.disconnect();
+      return;
+    }
+
     socket.nom = nom;
     utilisateurs.push(nom);
 
@@ -50,9 +48,13 @@ io.on('connection', (socket) => {
 
   // Déconnexion
   socket.on('disconnect', () => {
-    utilisateurs = utilisateurs.filter(n => n !== socket.nom);
-    io.emit('depart', socket.nom);
-    io.emit('NbUser',utilisateurs.length);
+    if (socket.nom) {
+      utilisateurs = utilisateurs.filter(n => n !== socket.nom);
+      io.emit('depart', socket.nom);
+      io.emit('NbUser',utilisateurs.length);
+    } else {
+      console.log('Un socket s\'est déconnecté avant d\'avoir choisi un nom.');
+    }
   });
 
 
