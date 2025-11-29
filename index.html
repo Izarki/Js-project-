@@ -29,13 +29,15 @@ Votre nom : <input id="nom" type="text">
 <script>
   const socket = io();
 
+  // écoute globale pour refus (doit être en place avant d'envoyer 'entrer')
+  socket.on('refus',msg=> {
+    alert(msg);
+    document.getElementById('chat').style.display = 'none';
+  })
+
   function entrer() {
     socket.emit('entrer', nom.value);
     document.getElementById('chat').style.display = 'block';
-    //Kick le mec de trop
-    socket.on('refus',msg=> {
-      alert(msg);
-    })
   }
 
   // Quand on est accepté
