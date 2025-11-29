@@ -15,7 +15,7 @@ server.listen(8888, () => {
 
 // Liste des utilisateurs connectés
 let utilisateurs = [];
-const MAX_USERS = 3; // limite à 3 joueurs
+const MAX_USERS = 2; // limite à 2 joueurs
 
 io.on('connection', (socket) => {
   console.log("Un utilisateur s'est connecté");
@@ -60,3 +60,4 @@ io.on('connection', (socket) => {
 
   
 });
+
