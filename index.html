@@ -1,120 +1,440 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Chat Socket.IO</title>
-<script src="/socket.io/socket.io.js"></script>
-<style>
-  
-</style>
-</head>
+	<meta charset="UTF-8">
+	<title>Bibliothèque Multijoueur - HAI305I</title>
 
+	<style>
+	body { margin:0; font-family: Arial, sans-serif; background:#f4f4f4; }
+	#login, #jeu { width:100vw; height:100vh; display:flex; }
+	#login { background:#333; color:white; align-items:center; justify-content:center; flex-direction:column; }
+	input, button { padding:10px; margin:10px; font-size:1.2em; }
+	button { background:#3498db; color:white; border:none; cursor:pointer; border-radius:5px; }
+	button:hover { background:#2980b9; }
+	#infos { position:fixed; top:0; left:0; right:0; background:rgba(0,0,0,0.8); color:white; padding:10px 20px; z-index:10; display:flex; justify-content:space-between; }
+	#infos span { color:#3498db; font-weight:bold; }
+	#main-container { display:flex; width:100%; height:100%; padding-top:50px; }
+	#plateau { flex:1; display:flex; justify-content:center; align-items:center; padding:20px; }
+	#chat-panel { width:300px; background:#2c3e50; display:flex; flex-direction:column; }
+	#chat-header { background:#34495e; padding:15px; color:white; font-weight:bold; }
+	#chat { flex:1; overflow-y:auto; padding:10px; color:white; }
+	#chat .message { margin-bottom:8px; padding:8px; background:rgba(52,152,219,0.2); border-radius:5px; }
+	#chat .message .nom { color:#3498db; font-weight:bold; }
+	#chat-input-container { padding:10px; background:#34495e; }
+	#chat-input { width:100%; padding:10px; border:none; border-radius:5px; box-sizing:border-box; }
+	svg { background:#fff; border:2px solid #333; border-radius:10px; }
+	.livre { cursor: move; }
+	.livre.dragging { opacity: 0.5; }
+	.livre.non-draggable { cursor: not-allowed; opacity: 0.6; }
+	.tapis { fill: #8B4513; }
+	.etagere-line { stroke: #333; stroke-width: 4; }
+	.etagere-bg { fill: #ecf0f1; opacity: 0.3; }
+	.error-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:#e74c3c; color:white; padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
+	@keyframes slideDown { from{top:-50px;} to{top:60px;} }
+	</style>
+
+</head>
 <body>
 
-<h2>Jeu</h2>
+  <!-- =============== PANTALLA LOGIN =============== -->
+  <div id="login">
+	<h1>📚 Bibliothèque Multijoueur</h1>
+	<input type="text" id="nom" placeholder="Ton pseudo" maxlength="15">
+	<button id="btn-login">Jouer</button>
+  </div>
 
-Votre nom : <input id="nom" type="text">
-<button onclick="entrer()">Entrer</button>
+  <!-- =============== PANTALLA JUEGO =============== -->
+  <div id="jeu" style="display:none;">
+	<div id="infos">
+		<div>Joueur: <span id="monNom"></span></div>
+		<div>Score: <span id="monScore">0</span></div>
+		<div>Tour: <span id="tourJoueur">En attente...</span></div>
+	</div>
+	
+	<div id="main-container">
+		<div id="plateau"></div>
+		
+		<div id="chat-panel">
+			<div id="chat-header">💬 Chat</div>
+			<div id="chat"></div>
+			<div id="chat-input-container">
+				<input type="text" id="chat-input" placeholder="Message...">
+			</div>
+		</div>
+	</div>
+  </div>
 
-<div id="chat" style="display:none;">
-  <h3>Messages :</h3>
-  <div id="messages"></div>
+  <!-- =============== LIBRERÍAS =============== -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
 
-  <input id="msg" type="text" placeholder="Écrire un message...">
-  <button onclick="envoyer()">Envoyer</button>
-</div>
-<div id="compteur" style="font-weight: bold; margin-bottom: 10px;">
-</div>
+  <!-- =============== CÓDIGO CLIENTE =============== -->
+  <script>
+	const socket = io();
 
-<script>
-  const socket = io();
+	const loginDiv = document.getElementById('login');
+	const jeuDiv = document.getElementById('jeu');
+	const nomInput = document.getElementById('nom');
+	const btnLogin = document.getElementById('btn-login');
+	const chatDiv = document.getElementById('chat');
+	const chatInput = document.getElementById('chat-input');
 
-  // écoute globale pour refus (doit être en place avant d'envoyer 'entrer')
-  socket.on('refus',msg=> {
-    alert(msg);
-    document.getElementById('chat').style.display = 'none';
-  })
+	let monNom = '';
+	let monTour = false;
+	let svg = null;
+	let etageres = [[], [], [], [], []]; // 5 étagères locales pour tracking
+	const LARGEUR = 900;
+	const HAUTEUR = 600;
+	const MARGE = 80;
 
-  function entrer() {
-    socket.emit('entrer', nom.value);
-    document.getElementById('chat').style.display = 'block';
-  }
+	// =============== 1. LOGIN ===============
+	btnLogin.onclick = () => {
+	  const nom = nomInput.value.trim();
+	  if (nom) {
+		socket.emit('entree', nom);
+	  }
+	};
 
-  // Quand on est accepté
-  socket.on('bienvenue', data => {
-    ajouterMessage(` Bienvenue ${data.nom} !`);
-  });
+	nomInput.addEventListener('keypress', (e) => {
+		if (e.key === 'Enter') btnLogin.click();
+	});
 
-  // Quand un nouvel utilisateur arrive
-  socket.on('nouveau', nom => {
-    ajouterMessage(`${nom} a rejoint le chat`);
-  });
+	// =============== RÉCEPTION D'ÉVÉNEMENTS ===============
+	socket.on('entree-validee', (data) => {
+		monNom = data.nom;
+		document.getElementById('monNom').textContent = monNom;
+		loginDiv.style.display = 'none';
+		jeuDiv.style.display = 'flex';
+		initialiserPlateau();
+		ajouterMessageChat('Système', 'Bienvenue ! En attente d\'un autre joueur...');
+	});
 
-  // Quand quelqu’un envoie un message
-  socket.on('message', data => {
-    ajouterMessage(`${data.auteur} : ${data.texte}`);
-  });
+	socket.on('erreur-entree', (msg) => {
+		afficherErreur(msg);
+	});
 
-  // Quand un utilisateur part
-  socket.on('depart', nom => {
-    ajouterMessage(`${nom} est parti`);
-  });
+	socket.on('joueurs-maj', (data) => {
+		console.log('Joueurs connectés:', data.nbJoueurs);
+		if (data.nbJoueurs === 2) {
+			ajouterMessageChat('Système', 'Deux joueurs connectés ! La partie va commencer...');
+		}
+	});
 
-  function envoyer() {
-    socket.emit('message', msg.value);
-    msg.value = "";
-  }
-  //Affiche le nombre d'utilisateur
- socket.on('NbUser', nb => {
-    const compteur = document.getElementById("compteur");
-    if (compteur) {
-        compteur.textContent = "Joueurs connectés : " + nb;
-    } else {
-        console.error("Div #compteur introuvable !");
-    }
-});
+	socket.on('partie-commence', (data) => {
+		console.log('Partie commence!', data);
+		ajouterMessageChat('Système', `La partie commence ! ${data.premierJoueur} commence.`);
+	});
 
-  function ajouterMessage(txt) {
-    const div = document.getElementById('messages');
-    div.innerHTML += txt + "<br>";
-    div.scrollTop = div.scrollHeight;
-  }
-</script>
+	socket.on('tour-joueur', (data) => {
+		document.getElementById('tourJoueur').textContent = data.joueur;
+		monTour = false;
+		
+		// Désactiver le drag sur tous les livres du tapis
+		svg.selectAll('.tapis-livres .livre').classed('non-draggable', true);
+	});
 
+	socket.on('votre-tour', () => {
+		monTour = true;
+		document.getElementById('tourJoueur').textContent = monNom + ' (TON TOUR !)';
+		ajouterMessageChat('Système', 'C\'est ton tour ! Glisse un livre sur une étagère.');
+		
+		// Activer le drag sur les livres du tapis
+		svg.selectAll('.tapis-livres .livre')
+			.classed('non-draggable', false)
+			.call(drag);
+	});
 
+	socket.on('nouveau-livre', (livre) => {
+		console.log('Nouveau livre sur le tapis:', livre);
+		ajouterLivreAuTapis(livre);
+	});
 
+	socket.on('maj-tapis', (tapis) => {
+		console.log('Mise à jour du tapis:', tapis);
+	});
 
+	socket.on('livre-place', (data) => {
+		console.log('Livre placé:', data);
+		
+		// Mettre à jour le score si c'est notre livre
+		if (data.joueur === monNom) {
+			document.getElementById('monScore').textContent = data.nouveauScore;
+			if (data.pointsGagnes > 0) {
+				ajouterMessageChat('Système', `🎉 Tu gagnes ${data.pointsGagnes} points !`);
+			}
+		} else {
+			ajouterMessageChat('Système', `${data.joueur} a placé un livre et gagne ${data.pointsGagnes} points.`);
+		}
+		
+		// Retirer le livre du tapis visuellement
+		svg.selectAll('.tapis-livres .livre')
+			.filter(d => d && d.id === data.livre.id)
+			.remove();
+		
+		// Redessiner les étagères (optionnel pour l'affichage multi-joueur)
+		// Pour simplifier, on ne redessine que nos propres étagères
+	});
 
+	socket.on('maj-joueurs', (listeJoueurs) => {
+		console.log('Mise à jour des joueurs:', listeJoueurs);
+		// Vous pouvez afficher les scores de tous les joueurs ici si souhaité
+	});
 
-<style>
-  #chat {
-  position: fixed;
-  bottom: 100px;
-  right: 20px;
-  display: none;
-  width: 300px;         
-  height: 400px;
-  background: rgba(255,255,255,0.92);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
-  border-radius: 8px;
-  padding: 12px;
-  box-sizing: border-box;
-}
+	socket.on('erreur', (msg) => {
+		afficherErreur(msg);
+	});
 
-  body {
-    font-family: Arial;
-    max-width: 600px;
-    margin: 30px auto;
-    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-    color: #222;
-    min-height: 100vh;
-  }
+	socket.on('message', (data) => {
+		ajouterMessageChat(data.nom, data.message);
+	});
 
-  #messages {
-    border: 1px solid #aaa; padding: 10px; height: 300px; overflow-y: scroll; 
-    }
-</style>
+	socket.on('partie-terminee', (data) => {
+		afficherErreur(data.message + ' Raison: ' + data.raison);
+		setTimeout(() => {
+			window.location.reload();
+		}, 3000);
+	});
 
+	// =============== INITIALISATION DU PLATEAU D3 ===============
+	function initialiserPlateau() {
+		svg = d3.select('#plateau').append('svg')
+			.attr('width', LARGEUR)
+			.attr('height', HAUTEUR);
 
+		// Tapis roulant (en bas)
+		svg.append('rect')
+		   .attr('class', 'tapis')
+		   .attr('x', MARGE)
+		   .attr('y', HAUTEUR - MARGE - 20)
+		   .attr('width', LARGEUR - 2*MARGE)
+		   .attr('height', 60)
+		   .attr('rx', 10)
+		   .attr('ry', 10)
+		   .attr('stroke', 'black')
+		   .attr('stroke-width', 2);
+
+		svg.append('text')
+			.attr('x', LARGEUR/2)
+			.attr('y', HAUTEUR - MARGE + 30)
+			.attr('text-anchor', 'middle')
+			.style('fill', 'white')
+			.style('font-weight', 'bold')
+			.text('📦 Tapis Roulant');
+
+		// Groupe pour les livres du tapis
+		svg.append('g').attr('class', 'tapis-livres');
+
+		// 5 étagères horizontales
+		const nbEtageres = 5;
+		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / nbEtageres;
+
+		for (let i = 0; i < nbEtageres; i++) {
+			const yEtagere = MARGE + i * espaceEtagere;
+			
+			// Fond étagère
+			svg.append('rect')
+				.attr('class', 'etagere-bg')
+				.attr('x', MARGE)
+				.attr('y', yEtagere - 5)
+				.attr('width', LARGEUR - 2*MARGE)
+				.attr('height', 70)
+				.attr('rx', 5);
+
+			// Ligne étagère
+			svg.append('line')
+			   .attr('class', 'etagere-line')
+			   .attr('x1', MARGE)
+			   .attr('y1', yEtagere + 60)
+			   .attr('x2', LARGEUR - MARGE)
+			   .attr('y2', yEtagere + 60);
+
+			// Label
+			svg.append('text')
+				.attr('x', MARGE - 15)
+				.attr('y', yEtagere + 35)
+				.attr('text-anchor', 'end')
+				.style('fill', '#333')
+				.style('font-weight', 'bold')
+				.style('font-size', '14px')
+				.text(`${i+1}`);
+
+			// Groupe pour livres de cette étagère
+			svg.append('g')
+				.attr('class', `etagere-livres-${i}`)
+				.attr('data-etagere', i);
+		}
+	}
+
+	// =============== AJOUTER LIVRE AU TAPIS ===============
+	function ajouterLivreAuTapis(livre) {
+		const groupeTapis = svg.select('.tapis-livres');
+		
+		// Compter combien de livres sont déjà sur le tapis
+		const nbLivres = groupeTapis.selectAll('.livre').size();
+		const xPos = MARGE + 20 + nbLivres * 100;
+		const yPos = HAUTEUR - MARGE + 5;
+
+		dessinerLivre(groupeTapis, livre, xPos, yPos);
+	}
+
+	// =============== DESSINER UN LIVRE ===============
+	function dessinerLivre(groupe, livre, x, y) {
+		const formats = { poche: 35, medium: 45, grand: 55, maxi: 65 };
+		const h = formats[livre.format] || 45;
+		
+		const couleurs = {
+			roman: '#3498db', sf: '#9b59b6', policier: '#e67e22',
+			'théâtre': '#e74c3c', aventures: '#16a085', 'poésie': '#f39c12',
+			thriller: '#c0392b', feelgood: '#1abc9c', essai: '#95a5a6',
+			fantasy: '#8e44ad', humour: '#f1c40f'
+		};
+		const couleur = couleurs[livre.genre] || '#7f8c8d';
+
+		const g = groupe.append('g')
+			.datum(livre)
+			.attr('transform', `translate(${x},${y})`)
+			.attr('class', 'livre non-draggable');
+
+		g.append('rect')
+			.attr('width', 85)
+			.attr('height', h)
+			.attr('fill', couleur)
+			.attr('stroke', '#2c3e50')
+			.attr('stroke-width', 2)
+			.attr('rx', 3);
+
+		g.append('text')
+			.attr('x', 42.5)
+			.attr('y', h/2 - 3)
+			.attr('text-anchor', 'middle')
+			.style('font-size', '10px')
+			.style('fill', 'white')
+			.style('font-weight', 'bold')
+			.text(livre.nom || livre.auteur.substring(0, 10));
+
+		g.append('text')
+			.attr('x', 42.5)
+			.attr('y', h/2 + 10)
+			.attr('text-anchor', 'middle')
+			.style('font-size', '8px')
+			.style('fill', 'white')
+			.text(livre.genre);
+	}
+
+	// =============== DRAG & DROP AVEC D3 ===============
+	const drag = d3.drag()
+	  .on('start', function(event, d) {
+		if (!monTour) {
+			afficherErreur("Ce n'est pas ton tour !");
+			return;
+		}
+		d3.select(this).raise().classed('dragging', true);
+	  })
+	  .on('drag', function(event, d) {
+		if (!monTour) return;
+		d3.select(this).attr('transform', `translate(${event.x}, ${event.y})`);
+	  })
+	  .on('end', function(event, d) {
+		if (!monTour) return;
+		
+		d3.select(this).classed('dragging', false);
+		
+		// Détecter sur quelle étagère le livre a été déposé
+		const etagereIndex = detecterEtagere(event.y);
+		
+		if (etagereIndex !== -1) {
+			// Calculer la position dans l'étagère
+			const position = calculerPosition(event.x, etagereIndex);
+			
+			// Envoyer au serveur
+			socket.emit('placer-livre', {
+				livreId: d.id,
+				etagereIndex: etagereIndex,
+				position: position
+			});
+			
+			// Ajouter visuellement à l'étagère locale
+			etageres[etagereIndex].splice(position, 0, d);
+			redessinerEtagere(etagereIndex);
+			
+		} else {
+			afficherErreur('Dépose le livre sur une étagère !');
+			// Remettre le livre à sa position initiale (tapis)
+			const index = svg.select('.tapis-livres').selectAll('.livre').nodes().indexOf(this);
+			const xOriginal = MARGE + 20 + index * 100;
+			const yOriginal = HAUTEUR - MARGE + 5;
+			d3.select(this)
+				.transition()
+				.duration(300)
+				.attr('transform', `translate(${xOriginal},${yOriginal})`);
+		}
+	  });
+
+	// =============== DÉTECTER L'ÉTAGÈRE ===============
+	function detecterEtagere(y) {
+		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / 5;
+		
+		for (let i = 0; i < 5; i++) {
+			const yEtagere = MARGE + i * espaceEtagere;
+			if (y >= yEtagere - 10 && y <= yEtagere + 70) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	// =============== CALCULER LA POSITION DANS L'ÉTAGÈRE ===============
+	function calculerPosition(x, etagereIndex) {
+		const nbLivres = etageres[etagereIndex].length;
+		const largeurLivre = 90;
+		
+		for (let i = 0; i <= nbLivres; i++) {
+			const xPosition = MARGE + 10 + i * largeurLivre;
+			if (x < xPosition + largeurLivre / 2) {
+				return i;
+			}
+		}
+		return nbLivres;
+	}
+
+	// =============== REDESSINER UNE ÉTAGÈRE ===============
+	function redessinerEtagere(etagereIndex) {
+		const groupeEtagere = svg.select(`.etagere-livres-${etagereIndex}`);
+		groupeEtagere.selectAll('*').remove();
+		
+		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / 5;
+		const yEtagere = MARGE + etagereIndex * espaceEtagere;
+		
+		etageres[etagereIndex].forEach((livre, idx) => {
+			dessinerLivre(groupeEtagere, livre, MARGE + 10 + idx * 90, yEtagere);
+		});
+	}
+
+	// =============== CHAT ===============
+	chatInput.addEventListener('keypress', (e) => {
+	  if (e.key === 'Enter' && e.target.value.trim()) {
+		socket.emit('message', e.target.value.trim());
+		e.target.value = '';
+	  }
+	});
+
+	function ajouterMessageChat(nom, message) {
+		const msgDiv = document.createElement('div');
+		msgDiv.className = 'message';
+		msgDiv.innerHTML = `<span class="nom">${nom}:</span> ${message}`;
+		chatDiv.appendChild(msgDiv);
+		chatDiv.scrollTop = chatDiv.scrollHeight;
+	}
+
+	// =============== AFFICHER ERREUR ===============
+	function afficherErreur(texte) {
+		const errorDiv = document.createElement('div');
+		errorDiv.className = 'error-msg';
+		errorDiv.textContent = texte;
+		document.body.appendChild(errorDiv);
+		setTimeout(() => errorDiv.remove(), 3000);
+	}
+
+  </script>
 </body>
 </html>
