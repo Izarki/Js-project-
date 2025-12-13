@@ -3,9 +3,7 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const io = require('socket.io')(server);
-const fs = require('fs');
 
-// ====================== DONNÉES ======================
 const LIVRES = [{"titre":"La vie devant soi", "auteur":"Emile Ajar", "nom":"Ajar", "genre":"roman", "format":"medium"},
 {"titre":"Antigone", "auteur":"Jean Anouilh", "nom":"Anouilh", "genre":"théâtre", "format":"poche"},
 {"titre":"Fondation", "auteur":"Isaac Asimov", "nom":"Asimov", "genre":"sf", "littérature":"anglo-saxonne", "format":"poche"},
@@ -161,12 +159,13 @@ const LIVRES = [{"titre":"La vie devant soi", "auteur":"Emile Ajar", "nom":"Ajar
 {"titre":"Germinal", "auteur":"Emile Zola", "nom":"Zola", "genre":"roman", "format":"medium"},
 {"titre":"L'assommoir", "auteur":"Emile Zola", "nom":"Zola", "genre":"roman", "format":"medium"},
 {"titre":"La bête humaine", "auteur":"Emile Zola", "nom":"Zola", "genre":"roman", "format":"medium"}]
+
 // ====================== ÉTAT DU JEU ======================
 let joueurs = {};
 let partie = {
 	enCours: false,
 	tapis: [],
-	etageres: [[], [], [], [], []], // Étagères communes à tous les joueurs
+	etageres: [[], [], [], [], []], 
 	livreSuivantTimer: null,
 	maxLivres: 30,
 	livresDistribues: 0
@@ -179,53 +178,26 @@ app.get('/', (req, res) => {
 
 // ====================== CONNEXION SOCKET ======================
 io.on('connection', (socket) => {
-	console.log(`[CONNEXION] Nouvelle connexion: ${socket.id}`);
+	// console.log(`[CONNEXION] Nouvelle connexion: ${socket.id}`);
 
 	// ========== PHASE 1: ENTRÉE DES JOUEURS ==========
 	socket.on('entree', (nom) => {
 		nom = nom.trim();
-		
-		// Validation du nom
-		if (!nom || nom.length === 0) {
-			socket.emit('erreur-entree', 'Le nom ne peut pas être vide.');
+		if (!nom || nom.length === 0 || joueurs[nom] || Object.keys(joueurs).length >= 2) {
+			const msg = !nom ? 'Le nom ne peut pas être vide.' : joueurs[nom] ? 'Ce nom est déjà pris.' : 'La partie est déjà complète.';
+			socket.emit('erreur-entree', msg);
 			return;
 		}
 
-		if (joueurs[nom]) {
-			socket.emit('erreur-entree', 'Ce nom est déjà pris. Choisissez-en un autre.');
-			return;
-		}
-
-		if (Object.keys(joueurs).length >= 2) {
-			socket.emit('erreur-entree', 'La partie est déjà complète (2 joueurs).');
-			return;
-		}
-
-		// Enregistrement du joueur
 		socket.nom = nom;
-		joueurs[nom] = {
-			nom: nom,
-			socketId: socket.id,
-			points: 0
-		};
-
+		joueurs[nom] = { nom: nom, socketId: socket.id, points: 0 };
 		console.log(`[ENTRÉE] ${nom} a rejoint la partie.`);
 		
-		// Confirmation au joueur
-		socket.emit('entree-validee', {
-			nom: nom,
-			joueurs: Object.values(joueurs)
-		});
-		
-		// Mise à jour pour tous
-		io.emit('joueurs-maj', {
-			joueurs: Object.values(joueurs),
-			nbJoueurs: Object.keys(joueurs).length
-		});
+		socket.emit('entree-validee', { nom: nom, joueurs: Object.values(joueurs) });
+		io.emit('joueurs-maj', { joueurs: Object.values(joueurs), nbJoueurs: Object.keys(joueurs).length });
 
-		// Démarrage si 2 joueurs
 		if (Object.keys(joueurs).length === 2 && !partie.enCours) {
-			setTimeout(() => demarrerPartie(), 2000);
+			setTimeout(demarrerPartie, 2000);
 		}
 	});
 
@@ -233,54 +205,27 @@ io.on('connection', (socket) => {
 	socket.on('placer-livre', (data) => {
 		const nomJoueur = socket.nom;
 
-		if (!nomJoueur || !joueurs[nomJoueur]) {
-			socket.emit('erreur', 'Joueur non identifié');
-			return;
-		}
+		if (!nomJoueur || !joueurs[nomJoueur] || !partie.enCours) return;
 
-		if (!partie.enCours) {
-			socket.emit('erreur', 'Aucune partie en cours');
-			return;
-		}
-
-		// Vérifier que le livre existe sur le tapis
 		const indexLivre = partie.tapis.findIndex(l => l.id === data.livreId);
-		if (indexLivre === -1) {
-			socket.emit('erreur', "Le livre n'est pas sur le tapis");
+		if (indexLivre === -1 || data.etagereIndex < 0 || data.etagereIndex > 4) {
+			socket.emit('erreur', "Livre ou étagère invalide");
 			return;
 		}
 
-		// Vérifier l'étagère
-		if (data.etagereIndex < 0 || data.etagereIndex > 4) {
-			socket.emit('erreur', "Étagère invalide");
-			return;
-		}
-
-		// Retirer le livre du tapis
 		const livre = partie.tapis.splice(indexLivre, 1)[0];
-
-		// Placer le livre sur l'étagère commune
 		partie.etageres[data.etagereIndex].splice(data.position, 0, livre);
 
-		console.log(`[PLACEMENT] ${nomJoueur} place "${livre.titre}" sur l'étagère ${data.etagereIndex} à la position ${data.position}`);
-
-		// Calculer les points
 		const pointsGagnes = calculerPoints(partie.etageres[data.etagereIndex], data.position);
 		joueurs[nomJoueur].points += pointsGagnes;
 
 		if (pointsGagnes > 0) {
-			console.log(`[POINTS] ${nomJoueur} gagne ${pointsGagnes} points (total: ${joueurs[nomJoueur].points})`);
+			console.log(`[PLACEMENT] ${nomJoueur} place "${livre.titre}" et gagne ${pointsGagnes} points (Total: ${joueurs[nomJoueur].points})`);
 		}
 
-		// Notifier tous les joueurs avec les étagères complètes
 		io.emit('livre-place', {
-			joueur: nomJoueur,
-			livre: livre,
-			etagereIndex: data.etagereIndex,
-			position: data.position,
-			pointsGagnes: pointsGagnes,
-			nouveauScore: joueurs[nomJoueur].points,
-			etageres: partie.etageres // Envoyer l'état complet des étagères
+			joueur: nomJoueur, livre: livre, etagereIndex: data.etagereIndex, position: data.position,
+			pointsGagnes: pointsGagnes, nouveauScore: joueurs[nomJoueur].points, etageres: partie.etageres
 		});
 
 		io.emit('maj-tapis', partie.tapis);
@@ -289,90 +234,62 @@ io.on('connection', (socket) => {
 
 	// ========== PHASE 3: CHAT ==========
 	socket.on('message', (msg) => {
-		if (!socket.nom) return;
-
-		msg = msg.trim();
-		if (msg.length === 0) return;
-
-		console.log(`[CHAT] ${socket.nom}: ${msg}`);
-
-		io.emit('message', {
-			nom: socket.nom,
-			message: msg,
-			timestamp: Date.now()
-		});
+		if (!socket.nom || msg.trim().length === 0) return;
+		console.log(`[CHAT] ${socket.nom}: ${msg.trim()}`);
+		io.emit('message', { nom: socket.nom, message: msg.trim(), timestamp: Date.now() });
 	});
 
 	// ========== PHASE 4: DÉCONNEXION ==========
 	socket.on('disconnect', () => {
 		if (!socket.nom) return;
-
 		const nom = socket.nom;
 		console.log(`[DÉCONNEXION] ${nom} s'est déconnecté.`);
 
 		delete joueurs[nom];
+		if (partie.enCours) terminerPartie(`${nom} s'est déconnecté.`);
 
-		// Si une partie est en cours, la terminer
-		if (partie.enCours) {
-			terminerPartie(`${nom} s'est déconnecté.`);
-		}
-
-		io.emit('joueurs-maj', {
-			joueurs: Object.values(joueurs),
-			nbJoueurs: Object.keys(joueurs).length
-		});
+		io.emit('joueurs-maj', { joueurs: Object.values(joueurs), nbJoueurs: Object.keys(joueurs).length });
 	});
 });
 
 // ====================== GESTION DE LA PARTIE ======================
-
 function demarrerPartie() {
 	partie.enCours = true;
 	partie.tapis = [];
-	partie.etageres = [[], [], [], [], []]; // Reset des étagères communes
+	partie.etageres = [[], [], [], [], []]; 
 	partie.livresDistribues = 0;
 
 	console.log("[PARTIE] La partie commence !");
 	
-	io.emit('partie-demarre', {
-		message: 'La partie commence !',
-		maxLivres: partie.maxLivres
-	});
+	io.emit('partie-demarre', { message: 'La partie commence !', maxLivres: partie.maxLivres });
 
-	// Ajouter 2 livres initiaux
-	setTimeout(() => ajouterLivreAuTapis(), 1000);
-	setTimeout(() => ajouterLivreAuTapis(), 3000);
+	setTimeout(ajouterLivreAuTapis, 1000);
+	setTimeout(ajouterLivreAuTapis, 3000);
 }
 
 function ajouterLivreAuTapis() {
 	if (!partie.enCours) return;
 
-	// Vérifier si on a atteint le maximum de livres
 	if (partie.livresDistribues >= partie.maxLivres) {
 		terminerPartie('Tous les livres ont été distribués !');
 		return;
 	}
 
+	// WARNING: Assuming LIVRES constant is available from the original code
 	const livreBase = LIVRES[Math.floor(Math.random() * LIVRES.length)];
-	const livre = {
-		...livreBase,
-		id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-		timestamp: Date.now()
-	};
+	const livre = { ...livreBase, id: Date.now() + '-' + Math.random().toString(36).substr(2, 9), timestamp: Date.now() };
 
 	partie.tapis.push(livre);
 	partie.livresDistribues++;
 
-	console.log(`[LIVRE] Nouveau livre ajouté: "${livre.titre}" (${partie.livresDistribues}/${partie.maxLivres})`);
+	// console.log(`[LIVRE] Nouveau livre ajouté: "${livre.titre}" (${partie.livresDistribues}/${partie.maxLivres})`);
 
 	io.emit('nouveau-livre', livre);
 	io.emit('maj-tapis', partie.tapis);
 
-	// Programmer le prochain livre (entre 8 et 12 secondes)
 	const delai = 8000 + Math.random() * 4000;
 	partie.livreSuivantTimer = setTimeout(ajouterLivreAuTapis, delai);
 
-	// Programmer la suppression du livre s'il n'est pas pris (20 secondes)
 	setTimeout(() => retirerLivreDuTapis(livre.id), 20000);
 }
 
@@ -380,7 +297,7 @@ function retirerLivreDuTapis(livreId) {
 	const index = partie.tapis.findIndex(l => l.id === livreId);
 	if (index !== -1) {
 		const livre = partie.tapis.splice(index, 1)[0];
-		console.log(`[LIVRE] Livre retiré du tapis: "${livre.titre}"`);
+		// console.log(`[LIVRE] Livre retiré du tapis: "${livre.titre}"`);
 		io.emit('livre-retire', { livreId: livreId });
 		io.emit('maj-tapis', partie.tapis);
 	}
@@ -392,28 +309,22 @@ function terminerPartie(raison) {
 	
 	console.log(`[FIN] Partie terminée: ${raison}`);
 
-	// Déterminer le gagnant
 	const joueursArray = Object.values(joueurs);
 	if (joueursArray.length === 2) {
 		joueursArray.sort((a, b) => b.points - a.points);
 		const gagnant = joueursArray[0];
 		const perdant = joueursArray[1];
 
+		const message = gagnant.points === perdant.points 
+			? `Égalité ! ${gagnant.nom} et ${perdant.nom} ont ${gagnant.points} points.`
+			: `${gagnant.nom} gagne avec ${gagnant.points} points contre ${perdant.points} !`;
+			
 		io.emit('partie-terminee', {
-			raison: raison,
-			gagnant: gagnant.nom,
-			scoreGagnant: gagnant.points,
-			perdant: perdant.nom,
-			scorePerdant: perdant.points,
-			message: gagnant.points === perdant.points 
-				? `Égalité ! ${gagnant.nom} et ${perdant.nom} ont ${gagnant.points} points.`
-				: `${gagnant.nom} gagne avec ${gagnant.points} points contre ${perdant.points} !`
+			raison: raison, gagnant: gagnant.nom, scoreGagnant: gagnant.points,
+			perdant: perdant.nom, scorePerdant: perdant.points, message: message
 		});
 	} else {
-		io.emit('partie-terminee', {
-			raison: raison,
-			message: 'La partie est terminée.'
-		});
+		io.emit('partie-terminee', { raison: raison, message: 'La partie est terminée.' });
 	}
 
 	partie.tapis = [];
@@ -421,7 +332,6 @@ function terminerPartie(raison) {
 }
 
 // ====================== CALCUL DES POINTS ======================
-
 function calculerPoints(etagere, positionNouveau) {
 	let points = 0;
 
@@ -435,126 +345,45 @@ function calculerPoints(etagere, positionNouveau) {
 
 function verifierMemeAuteur(etagere, pos) {
 	if (etagere.length < 2) return 0;
-
 	const livre = etagere[pos];
 	let count = 1;
-
-	// Compter à gauche
-	for (let i = pos - 1; i >= 0; i--) {
-		if (etagere[i].auteur === livre.auteur) {
-			count++;
-		} else {
-			break;
-		}
-	}
-
-	// Compter à droite
-	for (let i = pos + 1; i < etagere.length; i++) {
-		if (etagere[i].auteur === livre.auteur) {
-			count++;
-		} else {
-			break;
-		}
-	}
-
-	if (count >= 2) {
-		const points = count * (count - 1);
-		console.log(`  → ${count} livres du même auteur (${livre.auteur}) = ${points} pts`);
-		return points;
-	}
+	for (let i = pos - 1; i >= 0 && etagere[i].auteur === livre.auteur; i--) count++;
+	for (let i = pos + 1; i < etagere.length && etagere[i].auteur === livre.auteur; i++) count++;
+	if (count >= 2) return count * (count - 1);
 	return 0;
 }
 
 function verifierMemeGenre(etagere, pos) {
 	if (etagere.length < 3) return 0;
-
 	const livre = etagere[pos];
 	let count = 1;
-
-	for (let i = pos - 1; i >= 0; i--) {
-		if (etagere[i].genre === livre.genre) {
-			count++;
-		} else {
-			break;
-		}
-	}
-
-	for (let i = pos + 1; i < etagere.length; i++) {
-		if (etagere[i].genre === livre.genre) {
-			count++;
-		} else {
-			break;
-		}
-	}
-
-	if (count >= 3) {
-		const points = count + (count - 2);
-		console.log(`  → ${count} livres du même genre (${livre.genre}) = ${points} pts`);
-		return points;
-	}
-
+	for (let i = pos - 1; i >= 0 && etagere[i].genre === livre.genre; i--) count++;
+	for (let i = pos + 1; i < etagere.length && etagere[i].genre === livre.genre; i++) count++;
+	if (count >= 3) return count + (count - 2);
 	return 0;
 }
 
 function verifierMemeLitterature(etagere, pos) {
 	const livre = etagere[pos];
-
-	if (!livre.littérature) return 0;
-	if (etagere.length < 3) return 0;
-
+	if (!livre.littérature || etagere.length < 3) return 0;
 	let count = 1;
-
-	for (let i = pos - 1; i >= 0; i--) {
-		if (etagere[i].littérature === livre.littérature) {
-			count++;
-		} else {
-			break;
-		}
-	}
-
-	for (let i = pos + 1; i < etagere.length; i++) {
-		if (etagere[i].littérature === livre.littérature) {
-			count++;
-		} else {
-			break;
-		}
-	}
-
-	if (count >= 3) {
-		const points = count * 2;
-		console.log(`  → ${count} livres de la même littérature (${livre.littérature}) = ${points} pts`);
-		return points;
-	}
+	for (let i = pos - 1; i >= 0 && etagere[i].littérature === livre.littérature; i--) count++;
+	for (let i = pos + 1; i < etagere.length && etagere[i].littérature === livre.littérature; i++) count++;
+	if (count >= 3) return count * 2;
 	return 0;
 }
 
 function verifierOrdreAlphabetique(etagere, pos) {
 	if (etagere.length < 3) return 0;
-
 	let count = 1;
 
-	for (let i = pos - 1; i >= 0; i--) {
-		if (etagere[i].titre <= etagere[i + 1].titre) {
-			count++;
-		} else {
-			break;
-		}
-	}
+	// Check left
+	for (let i = pos - 1; i >= 0 && etagere[i].titre <= etagere[i + 1].titre; i--) count++;
 
-	for (let i = pos + 1; i < etagere.length; i++) {
-		if (etagere[i - 1].titre <= etagere[i].titre) {
-			count++;
-		} else {
-			break;
-		}
-	}
+	// Check right
+	for (let i = pos + 1; i < etagere.length && etagere[i - 1].titre <= etagere[i].titre; i++) count++;
 
-	if (count >= 3) {
-		const points = count * 3;
-		console.log(`  → ${count} livres en ordre alphabétique = ${points} pts`);
-		return points;
-	}
-
+	if (count >= 3) return count * 3;
 	return 0;
 }
 
