@@ -11,48 +11,99 @@
 	input, button { padding:10px; margin:10px; font-size:1.2em; }
 	button { background:#3498db; color:white; border:none; cursor:pointer; border-radius:5px; }
 	button:hover { background:#2980b9; }
+	
 	#infos { position:fixed; top:0; left:0; right:0; background:rgba(0,0,0,0.8); color:white; padding:10px 20px; z-index:10; display:flex; justify-content:space-between; }
 	#infos span { color:#3498db; font-weight:bold; }
-	#main-container { display:flex; width:100%; height:100%; padding-top:50px; }
-	#plateau { flex:1; display:flex; justify-content:center; align-items:center; padding:20px; }
-	#chat-panel { width:300px; background:#2c3e50; display:flex; flex-direction:column; }
+	
+	#main-container { display:flex; width:90%; height:90%; padding-top:50px; }
+	#plateau { flex:1; display:flex; justify-content:center; align-items:center; padding:20px; position:relative; }
+	
+	#chat-panel { width:350px; background:#2c3e50; display:flex; flex-direction:column; }
 	#chat-header { background:#34495e; padding:15px; color:white; font-weight:bold; }
 	#chat { flex:1; overflow-y:auto; padding:10px; color:white; }
 	#chat .message { margin-bottom:8px; padding:8px; background:rgba(52,152,219,0.2); border-radius:5px; }
 	#chat .message .nom { color:#3498db; font-weight:bold; }
-	#chat-input-container { padding:10px; background:#34495e; }
+	#chat .message.system { background:rgba(46,204,113,0.2); }
+	#chat .message.system .nom { color:#2ecc71; }
+	#chat-input-container { padding:20px; background:#34495e; }
 	#chat-input { width:100%; padding:10px; border:none; border-radius:5px; box-sizing:border-box; }
+	
 	svg { background:#fff; border:2px solid #333; border-radius:10px; }
 	.livre { cursor: move; }
 	.livre.dragging { opacity: 0.5; }
-	.livre.non-draggable { cursor: not-allowed; opacity: 0.6; }
 	.tapis { fill: #8B4513; }
 	.etagere-line { stroke: #333; stroke-width: 4; }
 	.etagere-bg { fill: #ecf0f1; opacity: 0.3; }
+	
+	#tooltip {
+		position: absolute;
+		background: rgba(0, 0, 0, 0.9);
+		color: white;
+		padding: 12px 16px;
+		border-radius: 8px;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.2s;
+		z-index: 1000;
+		max-width: 300px;
+		box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+	}
+	
+	#tooltip.visible {
+		opacity: 1;
+	}
+	
+	#tooltip .titre {
+		font-weight: bold;
+		font-size: 14px;
+		margin-bottom: 6px;
+		color: #3498db;
+	}
+	
+	#tooltip .info {
+		font-size: 12px;
+		margin: 3px 0;
+	}
+	
 	.error-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:#e74c3c; color:white; padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
-	@keyframes slideDown { from{top:-50px;} to{top:60px;} }
+	.success-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:#2ecc71; color:white; padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
+	
+	#modal-fin { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; }
+	#modal-fin.visible { display:flex; }
+	#modal-contenu { background:white; padding:40px; border-radius:10px; text-align:center; max-width:500px; }
+	#modal-contenu h2 { color:#2c3e50; margin-top:0; }
+	#modal-contenu p { font-size:1.2em; margin:20px 0; }
+	#modal-contenu button { background:#3498db; color:white; border:none; padding:15px 30px; font-size:1.1em; cursor:pointer; border-radius:5px; }
+	#modal-contenu button:hover { background:#2980b9; }
+	
+	@keyframes slideDown {
+		from { top:-50px; opacity:0; }
+		to { top:60px; opacity:1; }
+	}
 	</style>
 
 </head>
 <body>
 
-  <!-- =============== PANTALLA LOGIN =============== -->
+  <!-- =============== ÉCRAN LOGIN =============== -->
   <div id="login">
 	<h1>📚 Bibliothèque Multijoueur</h1>
 	<input type="text" id="nom" placeholder="Ton pseudo" maxlength="15">
 	<button id="btn-login">Jouer</button>
   </div>
 
-  <!-- =============== PANTALLA JUEGO =============== -->
+  <!-- =============== ÉCRAN JEU =============== -->
   <div id="jeu" style="display:none;">
 	<div id="infos">
 		<div>Joueur: <span id="monNom"></span></div>
 		<div>Score: <span id="monScore">0</span></div>
-		<div>Tour: <span id="tourJoueur">En attente...</span></div>
+		<div>Livres: <span id="compteurLivres">0/30</span></div>
 	</div>
 	
 	<div id="main-container">
-		<div id="plateau"></div>
+		<div id="plateau">
+			<div id="tooltip"></div>
+		</div>
 		
 		<div id="chat-panel">
 			<div id="chat-header">💬 Chat</div>
@@ -64,12 +115,22 @@
 	</div>
   </div>
 
-  <!-- =============== LIBRERÍAS =============== -->
+  <!-- =============== MODAL FIN DE PARTIE =============== -->
+  <div id="modal-fin">
+	<div id="modal-contenu">
+		<h2 id="modal-titre">Partie terminée</h2>
+		<p id="modal-message"></p>
+		<button id="btn-rejouer">Rejouer</button>
+	</div>
+  </div>
+
+  <!-- =============== BIBLIOTHÈQUES =============== -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
-  <!-- =============== CÓDIGO CLIENTE =============== -->
+  <!-- =============== CODE CLIENT =============== -->
   <script>
+	// ====================== VARIABLES GLOBALES ======================
 	const socket = io();
 
 	const loginDiv = document.getElementById('login');
@@ -78,92 +139,107 @@
 	const btnLogin = document.getElementById('btn-login');
 	const chatDiv = document.getElementById('chat');
 	const chatInput = document.getElementById('chat-input');
+	const modalFin = document.getElementById('modal-fin');
+	const tooltip = document.getElementById('tooltip');
 
 	let monNom = '';
-	let monTour = false;
 	let svg = null;
-	let etageres = [[], [], [], [], []]; // 5 étagères locales pour tracking
+	let etageres = [[], [], [], [], []]; // Étagères communes synchronisées
+	
 	const LARGEUR = 900;
 	const HAUTEUR = 600;
 	const MARGE = 80;
 
-	// =============== 1. LOGIN ===============
+	// ====================== PHASE 1: CONNEXION ======================
+	
 	btnLogin.onclick = () => {
-	  const nom = nomInput.value.trim();
-	  if (nom) {
-		socket.emit('entree', nom);
-	  }
+		const nom = nomInput.value.trim();
+		if (nom) {
+			socket.emit('entree', nom);
+		}
 	};
 
 	nomInput.addEventListener('keypress', (e) => {
 		if (e.key === 'Enter') btnLogin.click();
 	});
 
-	// =============== RÉCEPTION D'ÉVÉNEMENTS ===============
+	// Entrée validée
 	socket.on('entree-validee', (data) => {
 		monNom = data.nom;
 		document.getElementById('monNom').textContent = monNom;
 		loginDiv.style.display = 'none';
 		jeuDiv.style.display = 'flex';
 		initialiserPlateau();
-		ajouterMessageChat('Système', 'Bienvenue ! En attente d\'un autre joueur...');
+		ajouterMessageChat('Système', 'Bienvenue ! En attente d\'un autre joueur...', true);
 	});
 
+	// Erreur d'entrée
 	socket.on('erreur-entree', (msg) => {
 		afficherErreur(msg);
 	});
 
+	// Mise à jour des joueurs
 	socket.on('joueurs-maj', (data) => {
 		console.log('Joueurs connectés:', data.nbJoueurs);
 		if (data.nbJoueurs === 2) {
-			ajouterMessageChat('Système', 'Deux joueurs connectés ! La partie va commencer...');
+			ajouterMessageChat('Système', 'Deux joueurs connectés ! La partie va commencer...', true);
 		}
 	});
 
-	socket.on('partie-commence', (data) => {
-		console.log('Partie commence!', data);
-		ajouterMessageChat('Système', `La partie commence ! ${data.premierJoueur} commence.`);
+	// ====================== PHASE 2: PARTIE COMMENCE ======================
+	
+	socket.on('partie-demarre', (data) => {
+		ajouterMessageChat('Système', data.message, true);
+		afficherSucces('La partie commence ! Bonne chance !');
 	});
 
-	socket.on('tour-joueur', (data) => {
-		document.getElementById('tourJoueur').textContent = data.joueur;
-		monTour = false;
-		
-		// Désactiver le drag sur tous les livres du tapis
-		svg.selectAll('.tapis-livres .livre').classed('non-draggable', true);
-	});
-
-	socket.on('votre-tour', () => {
-		monTour = true;
-		document.getElementById('tourJoueur').textContent = monNom + ' (TON TOUR !)';
-		ajouterMessageChat('Système', 'C\'est ton tour ! Glisse un livre sur une étagère.');
-		
-		// Activer le drag sur les livres du tapis
-		svg.selectAll('.tapis-livres .livre')
-			.classed('non-draggable', false)
-			.call(drag);
-	});
-
+	// ====================== PHASE 3: LIVRES SUR LE TAPIS ======================
+	
 	socket.on('nouveau-livre', (livre) => {
 		console.log('Nouveau livre sur le tapis:', livre);
 		ajouterLivreAuTapis(livre);
+		
+		// Mettre à jour le compteur
+		const compteur = document.getElementById('compteurLivres');
+		const match = compteur.textContent.match(/(\d+)\/(\d+)/);
+		if (match) {
+			const nouveau = parseInt(match[1]) + 1;
+			compteur.textContent = `${nouveau}/${match[2]}`;
+		}
+	});
+
+	socket.on('livre-retire', (data) => {
+		console.log('Livre retiré:', data.livreId);
+		// Retirer visuellement le livre du tapis avec animation
+		svg.selectAll('.tapis-livres .livre')
+			.filter(d => d && d.id === data.livreId)
+			.transition()
+			.duration(500)
+			.style('opacity', 0)
+			.remove();
 	});
 
 	socket.on('maj-tapis', (tapis) => {
 		console.log('Mise à jour du tapis:', tapis);
 	});
 
+	// ====================== PHASE 4: PLACEMENT DES LIVRES ======================
+	
 	socket.on('livre-place', (data) => {
 		console.log('Livre placé:', data);
 		
-		// Mettre à jour le score si c'est notre livre
+		// Synchroniser les étagères communes
+		etageres = data.etageres;
+		
+		// Mettre à jour tous les scores affichés
 		if (data.joueur === monNom) {
 			document.getElementById('monScore').textContent = data.nouveauScore;
 			if (data.pointsGagnes > 0) {
-				ajouterMessageChat('Système', `🎉 Tu gagnes ${data.pointsGagnes} points !`);
+				ajouterMessageChat('Système', `Tu gagnes ${data.pointsGagnes} points ! 🎉`, true);
+				afficherSucces(`+${data.pointsGagnes} points !`);
 			}
 		} else {
-			ajouterMessageChat('Système', `${data.joueur} a placé un livre et gagne ${data.pointsGagnes} points.`);
+			ajouterMessageChat('Système', `${data.joueur} a placé un livre et gagne ${data.pointsGagnes} points.`, true);
 		}
 		
 		// Retirer le livre du tapis visuellement
@@ -171,31 +247,61 @@
 			.filter(d => d && d.id === data.livre.id)
 			.remove();
 		
-		// Redessiner les étagères (optionnel pour l'affichage multi-joueur)
-		// Pour simplifier, on ne redessine que nos propres étagères
+		// Redessiner l'étagère modifiée
+		redessinerEtagere(data.etagereIndex);
 	});
 
 	socket.on('maj-joueurs', (listeJoueurs) => {
 		console.log('Mise à jour des joueurs:', listeJoueurs);
-		// Vous pouvez afficher les scores de tous les joueurs ici si souhaité
 	});
 
-	socket.on('erreur', (msg) => {
-		afficherErreur(msg);
+	// ====================== PHASE 5: FIN DE PARTIE ======================
+	
+	socket.on('partie-terminee', (data) => {
+		console.log('Partie terminée:', data);
+		
+		// Afficher le modal
+		document.getElementById('modal-titre').textContent = 
+			data.gagnant ? '🏆 Victoire !' : 'Partie terminée';
+		
+		let message = data.message;
+		if (data.gagnant && data.gagnant === monNom) {
+			message = `🎉 Félicitations ! Vous avez gagné avec ${data.scoreGagnant} points !`;
+		} else if (data.gagnant) {
+			message = `${data.gagnant} gagne avec ${data.scoreGagnant} points contre ${data.scorePerdant}.`;
+		}
+		
+		document.getElementById('modal-message').textContent = message;
+		modalFin.classList.add('visible');
+		
+		ajouterMessageChat('Système', data.message, true);
 	});
 
+	document.getElementById('btn-rejouer').onclick = () => {
+		window.location.reload();
+	};
+
+	// ====================== PHASE 6: CHAT ======================
+	
 	socket.on('message', (data) => {
 		ajouterMessageChat(data.nom, data.message);
 	});
 
-	socket.on('partie-terminee', (data) => {
-		afficherErreur(data.message + ' Raison: ' + data.raison);
-		setTimeout(() => {
-			window.location.reload();
-		}, 3000);
+	chatInput.addEventListener('keypress', (e) => {
+		if (e.key === 'Enter' && e.target.value.trim()) {
+			socket.emit('message', e.target.value.trim());
+			e.target.value = '';
+		}
 	});
 
-	// =============== INITIALISATION DU PLATEAU D3 ===============
+	// ====================== ERREURS ======================
+	
+	socket.on('erreur', (msg) => {
+		afficherErreur(msg);
+	});
+
+	// ====================== INITIALISATION DU PLATEAU D3 ======================
+	
 	function initialiserPlateau() {
 		svg = d3.select('#plateau').append('svg')
 			.attr('width', LARGEUR)
@@ -219,7 +325,7 @@
 			.attr('text-anchor', 'middle')
 			.style('fill', 'white')
 			.style('font-weight', 'bold')
-			.text('📦 Tapis Roulant');
+			.text('📦 Tapis roulant');
 
 		// Groupe pour les livres du tapis
 		svg.append('g').attr('class', 'tapis-livres');
@@ -265,19 +371,32 @@
 		}
 	}
 
-	// =============== AJOUTER LIVRE AU TAPIS ===============
+	// ====================== AJOUTER LIVRE AU TAPIS ======================
+	
 	function ajouterLivreAuTapis(livre) {
 		const groupeTapis = svg.select('.tapis-livres');
 		
-		// Compter combien de livres sont déjà sur le tapis
-		const nbLivres = groupeTapis.selectAll('.livre').size();
-		const xPos = MARGE + 20 + nbLivres * 100;
+		// Position initiale: hors écran à droite
+		const xDepart = LARGEUR;
 		const yPos = HAUTEUR - MARGE + 5;
+		
+		// Position d'arrivée: au centre du tapis
+		const xArrivee = LARGEUR / 2 - 42.5;
 
-		dessinerLivre(groupeTapis, livre, xPos, yPos);
+		const livreSVG = dessinerLivre(groupeTapis, livre, xDepart, yPos);
+		
+		// Animation d'arrivée de droite à gauche (plus lente)
+		livreSVG.transition()
+			.duration(3000) // Plus lent: 3 secondes
+			.attr('transform', `translate(${xArrivee},${yPos})`)
+			.on('end', function() {
+				// Une fois arrivé, activer le drag
+				d3.select(this).call(drag);
+			});
 	}
 
-	// =============== DESSINER UN LIVRE ===============
+	// ====================== DESSINER UN LIVRE ======================
+	
 	function dessinerLivre(groupe, livre, x, y) {
 		const formats = { poche: 35, medium: 45, grand: 55, maxi: 65 };
 		const h = formats[livre.format] || 45;
@@ -293,7 +412,7 @@
 		const g = groupe.append('g')
 			.datum(livre)
 			.attr('transform', `translate(${x},${y})`)
-			.attr('class', 'livre non-draggable');
+			.attr('class', 'livre');
 
 		g.append('rect')
 			.attr('width', 85)
@@ -310,6 +429,7 @@
 			.style('font-size', '10px')
 			.style('fill', 'white')
 			.style('font-weight', 'bold')
+			.style('pointer-events', 'none')
 			.text(livre.nom || livre.auteur.substring(0, 10));
 
 		g.append('text')
@@ -318,59 +438,93 @@
 			.attr('text-anchor', 'middle')
 			.style('font-size', '8px')
 			.style('fill', 'white')
+			.style('pointer-events', 'none')
 			.text(livre.genre);
+		
+		// Ajouter les événements de survol pour le tooltip
+		g.on('mouseover', function(event, d) {
+			afficherTooltip(event, d);
+		})
+		.on('mousemove', function(event) {
+			deplacerTooltip(event);
+		})
+		.on('mouseout', function() {
+			cacherTooltip();
+		});
+		
+		return g;
 	}
 
-	// =============== DRAG & DROP AVEC D3 ===============
-	const drag = d3.drag()
-	  .on('start', function(event, d) {
-		if (!monTour) {
-			afficherErreur("Ce n'est pas ton tour !");
-			return;
-		}
-		d3.select(this).raise().classed('dragging', true);
-	  })
-	  .on('drag', function(event, d) {
-		if (!monTour) return;
-		d3.select(this).attr('transform', `translate(${event.x}, ${event.y})`);
-	  })
-	  .on('end', function(event, d) {
-		if (!monTour) return;
+	// ====================== TOOLTIP ======================
+	
+	function afficherTooltip(event, livre) {
+		const html = `
+			<div class="titre">${livre.titre}</div>
+			<div class="info">📚 Auteur: ${livre.auteur}</div>
+			<div class="info">🎭 Genre: ${livre.genre}</div>
+			<div class="info">📏 Format: ${livre.format}</div>
+			${livre.littérature ? `<div class="info">🌍 Littérature: ${livre.littérature}</div>` : ''}
+		`;
 		
-		d3.select(this).classed('dragging', false);
-		
-		// Détecter sur quelle étagère le livre a été déposé
-		const etagereIndex = detecterEtagere(event.y);
-		
-		if (etagereIndex !== -1) {
-			// Calculer la position dans l'étagère
-			const position = calculerPosition(event.x, etagereIndex);
-			
-			// Envoyer au serveur
-			socket.emit('placer-livre', {
-				livreId: d.id,
-				etagereIndex: etagereIndex,
-				position: position
-			});
-			
-			// Ajouter visuellement à l'étagère locale
-			etageres[etagereIndex].splice(position, 0, d);
-			redessinerEtagere(etagereIndex);
-			
-		} else {
-			afficherErreur('Dépose le livre sur une étagère !');
-			// Remettre le livre à sa position initiale (tapis)
-			const index = svg.select('.tapis-livres').selectAll('.livre').nodes().indexOf(this);
-			const xOriginal = MARGE + 20 + index * 100;
-			const yOriginal = HAUTEUR - MARGE + 5;
-			d3.select(this)
-				.transition()
-				.duration(300)
-				.attr('transform', `translate(${xOriginal},${yOriginal})`);
-		}
-	  });
+		tooltip.innerHTML = html;
+		tooltip.classList.add('visible');
+		deplacerTooltip(event);
+	}
+	
+	function deplacerTooltip(event) {
+		const plateauRect = document.getElementById('plateau').getBoundingClientRect();
+		tooltip.style.left = (event.pageX - plateauRect.left + 15) + 'px';
+		tooltip.style.top = (event.pageY - plateauRect.top + 15) + 'px';
+	}
+	
+	function cacherTooltip() {
+		tooltip.classList.remove('visible');
+	}
 
-	// =============== DÉTECTER L'ÉTAGÈRE ===============
+	// ====================== DRAG & DROP AVEC D3 ======================
+	
+	const drag = d3.drag()
+		.on('start', function(event, d) {
+			d3.select(this).raise().classed('dragging', true);
+			cacherTooltip(); // Cacher le tooltip pendant le drag
+		})
+		.on('drag', function(event, d) {
+			d3.select(this).attr('transform', `translate(${event.x}, ${event.y})`);
+		})
+		.on('end', function(event, d) {
+			d3.select(this).classed('dragging', false);
+			
+			// Détecter sur quelle étagère le livre a été déposé
+			const etagereIndex = detecterEtagere(event.y);
+			
+			if (etagereIndex !== -1) {
+				// Calculer la position dans l'étagère
+				const position = calculerPosition(event.x, etagereIndex);
+				
+				// Envoyer au serveur
+				socket.emit('placer-livre', {
+					livreId: d.id,
+					etagereIndex: etagereIndex,
+					position: position
+				});
+				
+				// Retirer du tapis immédiatement (sera redisposé par le serveur)
+				d3.select(this).remove();
+				
+			} else {
+				afficherErreur('Dépose le livre sur une étagère !');
+				// Remettre le livre au centre du tapis
+				const xOriginal = LARGEUR / 2 - 42.5;
+				const yOriginal = HAUTEUR - MARGE + 5;
+				d3.select(this)
+					.transition()
+					.duration(300)
+					.attr('transform', `translate(${xOriginal},${yOriginal})`);
+			}
+		});
+
+	// ====================== DÉTECTER L'ÉTAGÈRE ======================
+	
 	function detecterEtagere(y) {
 		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / 5;
 		
@@ -383,7 +537,8 @@
 		return -1;
 	}
 
-	// =============== CALCULER LA POSITION DANS L'ÉTAGÈRE ===============
+	// ====================== CALCULER LA POSITION DANS L'ÉTAGÈRE ======================
+	
 	function calculerPosition(x, etagereIndex) {
 		const nbLivres = etageres[etagereIndex].length;
 		const largeurLivre = 90;
@@ -397,7 +552,8 @@
 		return nbLivres;
 	}
 
-	// =============== REDESSINER UNE ÉTAGÈRE ===============
+	// ====================== REDESSINER UNE ÉTAGÈRE ======================
+	
 	function redessinerEtagere(etagereIndex) {
 		const groupeEtagere = svg.select(`.etagere-livres-${etagereIndex}`);
 		groupeEtagere.selectAll('*').remove();
@@ -406,33 +562,36 @@
 		const yEtagere = MARGE + etagereIndex * espaceEtagere;
 		
 		etageres[etagereIndex].forEach((livre, idx) => {
-			dessinerLivre(groupeEtagere, livre, MARGE + 10 + idx * 90, yEtagere);
+			const livreSVG = dessinerLivre(groupeEtagere, livre, MARGE + 10 + idx * 90, yEtagere);
+			// Les livres sur l'étagère ne sont pas draggables
+			livreSVG.style('cursor', 'default');
 		});
 	}
 
-	// =============== CHAT ===============
-	chatInput.addEventListener('keypress', (e) => {
-	  if (e.key === 'Enter' && e.target.value.trim()) {
-		socket.emit('message', e.target.value.trim());
-		e.target.value = '';
-	  }
-	});
-
-	function ajouterMessageChat(nom, message) {
+	// ====================== FONCTIONS UTILITAIRES ======================
+	
+	function ajouterMessageChat(nom, message, isSystem = false) {
 		const msgDiv = document.createElement('div');
-		msgDiv.className = 'message';
+		msgDiv.className = isSystem ? 'message system' : 'message';
 		msgDiv.innerHTML = `<span class="nom">${nom}:</span> ${message}`;
 		chatDiv.appendChild(msgDiv);
 		chatDiv.scrollTop = chatDiv.scrollHeight;
 	}
 
-	// =============== AFFICHER ERREUR ===============
 	function afficherErreur(texte) {
 		const errorDiv = document.createElement('div');
 		errorDiv.className = 'error-msg';
 		errorDiv.textContent = texte;
 		document.body.appendChild(errorDiv);
 		setTimeout(() => errorDiv.remove(), 3000);
+	}
+
+	function afficherSucces(texte) {
+		const successDiv = document.createElement('div');
+		successDiv.className = 'success-msg';
+		successDiv.textContent = texte;
+		document.body.appendChild(successDiv);
+		setTimeout(() => successDiv.remove(), 2000);
 	}
 
   </script>
