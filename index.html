@@ -3,96 +3,55 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Bibliothèque Multijoueur - HAI305I</title>
-
 	<style>
 	body { margin:0; font-family: Arial, sans-serif; background:#f4f4f4; }
 	#login, #jeu { width:100vw; height:100vh; display:flex; }
 	#login { background:#333; color:white; align-items:center; justify-content:center; flex-direction:column; }
 	input, button { padding:10px; margin:10px; font-size:1.2em; }
-	button { background:#3498db; color:white; border:none; cursor:pointer; border-radius:5px; }
-	button:hover { background:#2980b9; }
+	button { background:#3498db; color:white; border:none; cursor:pointer; }
 	
 	#infos { position:fixed; top:0; left:0; right:0; background:rgba(0,0,0,0.8); color:white; padding:10px 20px; z-index:10; display:flex; justify-content:space-between; }
-	#infos span { color:#3498db; font-weight:bold; }
-	
 	#main-container { display:flex; width:90%; height:90%; padding-top:50px; }
 	#plateau { flex:1; display:flex; justify-content:center; align-items:center; padding:20px; position:relative; }
 	
 	#chat-panel { width:350px; background:#2c3e50; display:flex; flex-direction:column; }
 	#chat-header { background:#34495e; padding:15px; color:white; font-weight:bold; }
 	#chat { flex:1; overflow-y:auto; padding:10px; color:white; }
-	#chat .message { margin-bottom:8px; padding:8px; background:rgba(52,152,219,0.2); border-radius:5px; }
+	#chat .message { margin-bottom:8px; padding:8px; border-radius:5px; }
 	#chat .message .nom { color:#3498db; font-weight:bold; }
 	#chat .message.system { background:rgba(46,204,113,0.2); }
-	#chat .message.system .nom { color:#2ecc71; }
-	#chat-input-container { padding:20px; background:#34495e; }
-	#chat-input { width:100%; padding:10px; border:none; border-radius:5px; box-sizing:border-box; }
+	#chat-input { width:100%; padding:10px; border:none; box-sizing:border-box; }
 	
-	svg { background:#fff; border:2px solid #333; border-radius:10px; }
+	svg { background:#fff; border:2px solid #333; }
 	.livre { cursor: move; }
-	.livre.dragging { opacity: 0.5; }
 	.tapis { fill: #8B4513; }
 	.etagere-line { stroke: #333; stroke-width: 4; }
 	.etagere-bg { fill: #ecf0f1; opacity: 0.3; }
 	
 	#tooltip {
-		position: absolute;
-		background: rgba(0, 0, 0, 0.9);
-		color: white;
-		padding: 12px 16px;
-		border-radius: 8px;
-		pointer-events: none;
-		opacity: 0;
-		transition: opacity 0.2s;
-		z-index: 1000;
-		max-width: 300px;
-		box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+		position: absolute; background: rgba(0, 0, 0, 0.9); color: white; padding: 12px; border-radius: 8px;
+		pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 1000;
 	}
+	#tooltip.visible { opacity: 1; }
 	
-	#tooltip.visible {
-		opacity: 1;
-	}
-	
-	#tooltip .titre {
-		font-weight: bold;
-		font-size: 14px;
-		margin-bottom: 6px;
-		color: #3498db;
-	}
-	
-	#tooltip .info {
-		font-size: 12px;
-		margin: 3px 0;
-	}
-	
-	.error-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:#e74c3c; color:white; padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
-	.success-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:#2ecc71; color:white; padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
+	.error-msg, .success-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
+	.error-msg { background:#e74c3c; color:white; }
+	.success-msg { background:#2ecc71; color:white; }
 	
 	#modal-fin { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; }
 	#modal-fin.visible { display:flex; }
-	#modal-contenu { background:white; padding:40px; border-radius:10px; text-align:center; max-width:500px; }
-	#modal-contenu h2 { color:#2c3e50; margin-top:0; }
-	#modal-contenu p { font-size:1.2em; margin:20px 0; }
-	#modal-contenu button { background:#3498db; color:white; border:none; padding:15px 30px; font-size:1.1em; cursor:pointer; border-radius:5px; }
-	#modal-contenu button:hover { background:#2980b9; }
+	#modal-contenu { background:white; padding:40px; border-radius:10px; text-align:center; }
 	
-	@keyframes slideDown {
-		from { top:-50px; opacity:0; }
-		to { top:60px; opacity:1; }
-	}
+	@keyframes slideDown { from { top:-50px; opacity:0; } to { top:60px; opacity:1; } }
 	</style>
-
 </head>
 <body>
-
-  <!-- =============== ÉCRAN LOGIN =============== -->
   <div id="login">
-	<h1>📚 Bibliothèque Multijoueur</h1>
+	<h1> Bibliothèque Multijoueur</h1>
 	<input type="text" id="nom" placeholder="Ton pseudo" maxlength="15">
 	<button id="btn-login">Jouer</button>
   </div>
 
-  <!-- =============== ÉCRAN JEU =============== -->
   <div id="jeu" style="display:none;">
 	<div id="infos">
 		<div>Joueur: <span id="monNom"></span></div>
@@ -106,7 +65,7 @@
 		</div>
 		
 		<div id="chat-panel">
-			<div id="chat-header">💬 Chat</div>
+			<div id="chat-header"> Chat</div>
 			<div id="chat"></div>
 			<div id="chat-input-container">
 				<input type="text" id="chat-input" placeholder="Message...">
@@ -115,7 +74,6 @@
 	</div>
   </div>
 
-  <!-- =============== MODAL FIN DE PARTIE =============== -->
   <div id="modal-fin">
 	<div id="modal-contenu">
 		<h2 id="modal-titre">Partie terminée</h2>
@@ -124,15 +82,12 @@
 	</div>
   </div>
 
-  <!-- =============== BIBLIOTHÈQUES =============== -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
-  <!-- =============== CODE CLIENT =============== -->
   <script>
 	// ====================== VARIABLES GLOBALES ======================
 	const socket = io();
-
 	const loginDiv = document.getElementById('login');
 	const jeuDiv = document.getElementById('jeu');
 	const nomInput = document.getElementById('nom');
@@ -141,24 +96,18 @@
 	const chatInput = document.getElementById('chat-input');
 	const modalFin = document.getElementById('modal-fin');
 	const tooltip = document.getElementById('tooltip');
-
 	let monNom = '';
 	let svg = null;
-	let etageres = [[], [], [], [], []]; // Étagères communes synchronisées
-	
+	let etageres = [[], [], [], [], []]; 
 	const LARGEUR = 900;
 	const HAUTEUR = 600;
 	const MARGE = 80;
 
 	// ====================== PHASE 1: CONNEXION ======================
-	
 	btnLogin.onclick = () => {
 		const nom = nomInput.value.trim();
-		if (nom) {
-			socket.emit('entree', nom);
-		}
+		if (nom) socket.emit('entree', nom);
 	};
-
 	nomInput.addEventListener('keypress', (e) => {
 		if (e.key === 'Enter') btnLogin.click();
 	});
@@ -172,34 +121,21 @@
 		initialiserPlateau();
 		ajouterMessageChat('Système', 'Bienvenue ! En attente d\'un autre joueur...', true);
 	});
-
-	// Erreur d'entrée
-	socket.on('erreur-entree', (msg) => {
-		afficherErreur(msg);
-	});
-
-	// Mise à jour des joueurs
+	socket.on('erreur-entree', (msg) => afficherErreur(msg));
 	socket.on('joueurs-maj', (data) => {
-		console.log('Joueurs connectés:', data.nbJoueurs);
 		if (data.nbJoueurs === 2) {
-			ajouterMessageChat('Système', 'Deux joueurs connectés ! La partie va commencer...', true);
+			agregarMensajeConsola('Dos jugadores conectados.');
 		}
 	});
 
-	// ====================== PHASE 2: PARTIE COMMENCE ======================
-	
+	// ====================== FASES DE JUEGO ======================
 	socket.on('partie-demarre', (data) => {
 		ajouterMessageChat('Système', data.message, true);
 		afficherSucces('La partie commence ! Bonne chance !');
 	});
-
-	// ====================== PHASE 3: LIVRES SUR LE TAPIS ======================
 	
 	socket.on('nouveau-livre', (livre) => {
-		console.log('Nouveau livre sur le tapis:', livre);
 		ajouterLivreAuTapis(livre);
-		
-		// Mettre à jour le compteur
 		const compteur = document.getElementById('compteurLivres');
 		const match = compteur.textContent.match(/(\d+)\/(\d+)/);
 		if (match) {
@@ -209,83 +145,48 @@
 	});
 
 	socket.on('livre-retire', (data) => {
-		console.log('Livre retiré:', data.livreId);
-		// Retirer visuellement le livre du tapis avec animation
 		svg.selectAll('.tapis-livres .livre')
 			.filter(d => d && d.id === data.livreId)
-			.transition()
-			.duration(500)
-			.style('opacity', 0)
-			.remove();
+			.transition().duration(500).style('opacity', 0).remove();
 	});
 
-	socket.on('maj-tapis', (tapis) => {
-		console.log('Mise à jour du tapis:', tapis);
-	});
-
-	// ====================== PHASE 4: PLACEMENT DES LIVRES ======================
-	
 	socket.on('livre-place', (data) => {
-		console.log('Livre placé:', data);
-		
-		// Synchroniser les étagères communes
 		etageres = data.etageres;
-		
-		// Mettre à jour tous les scores affichés
 		if (data.joueur === monNom) {
 			document.getElementById('monScore').textContent = data.nouveauScore;
 			if (data.pointsGagnes > 0) {
-				ajouterMessageChat('Système', `Tu gagnes ${data.pointsGagnes} points ! 🎉`, true);
+				ajouterMessageChat('Système', `Tu gagnes ${data.pointsGagnes} points ! `, true);
 				afficherSucces(`+${data.pointsGagnes} points !`);
 			}
 		} else {
 			ajouterMessageChat('Système', `${data.joueur} a placé un livre et gagne ${data.pointsGagnes} points.`, true);
 		}
 		
-		// Retirer le livre du tapis visuellement
 		svg.selectAll('.tapis-livres .livre')
 			.filter(d => d && d.id === data.livre.id)
 			.remove();
 		
-		// Redessiner l'étagère modifiée
 		redessinerEtagere(data.etagereIndex);
 	});
 
-	socket.on('maj-joueurs', (listeJoueurs) => {
-		console.log('Mise à jour des joueurs:', listeJoueurs);
-	});
-
-	// ====================== PHASE 5: FIN DE PARTIE ======================
-	
+	// ====================== FIN DE PARTIE ======================
 	socket.on('partie-terminee', (data) => {
-		console.log('Partie terminée:', data);
-		
-		// Afficher le modal
-		document.getElementById('modal-titre').textContent = 
-			data.gagnant ? '🏆 Victoire !' : 'Partie terminée';
-		
+		document.getElementById('modal-titre').textContent = data.gagnant ? ' Victoire !' : 'Partie terminée';
 		let message = data.message;
 		if (data.gagnant && data.gagnant === monNom) {
-			message = `🎉 Félicitations ! Vous avez gagné avec ${data.scoreGagnant} points !`;
+			message = `Félicitations ! Vous avez gagné avec ${data.scoreGagnant} points !`;
 		} else if (data.gagnant) {
 			message = `${data.gagnant} gagne avec ${data.scoreGagnant} points contre ${data.scorePerdant}.`;
 		}
-		
 		document.getElementById('modal-message').textContent = message;
 		modalFin.classList.add('visible');
-		
 		ajouterMessageChat('Système', data.message, true);
 	});
 
-	document.getElementById('btn-rejouer').onclick = () => {
-		window.location.reload();
-	};
+	document.getElementById('btn-rejouer').onclick = () => window.location.reload();
 
-	// ====================== PHASE 6: CHAT ======================
-	
-	socket.on('message', (data) => {
-		ajouterMessageChat(data.nom, data.message);
-	});
+	// ====================== CHAT ======================
+	socket.on('message', (data) => ajouterMessageChat(data.nom, data.message));
 
 	chatInput.addEventListener('keypress', (e) => {
 		if (e.key === 'Enter' && e.target.value.trim()) {
@@ -293,283 +194,161 @@
 			e.target.value = '';
 		}
 	});
-
-	// ====================== ERREURS ======================
 	
-	socket.on('erreur', (msg) => {
-		afficherErreur(msg);
-	});
+	// ====================== ERREURS ======================
+	socket.on('erreur', (msg) => afficherErreur(msg));
 
 	// ====================== INITIALISATION DU PLATEAU D3 ======================
-	
 	function initialiserPlateau() {
 		svg = d3.select('#plateau').append('svg')
-			.attr('width', LARGEUR)
-			.attr('height', HAUTEUR);
-
-		// Tapis roulant (en bas)
+			.attr('width', LARGEUR).attr('height', HAUTEUR);
 		svg.append('rect')
-		   .attr('class', 'tapis')
-		   .attr('x', MARGE)
-		   .attr('y', HAUTEUR - MARGE - 20)
-		   .attr('width', LARGEUR - 2*MARGE)
-		   .attr('height', 60)
-		   .attr('rx', 10)
-		   .attr('ry', 10)
-		   .attr('stroke', 'black')
-		   .attr('stroke-width', 2);
-
-		svg.append('text')
-			.attr('x', LARGEUR/2)
-			.attr('y', HAUTEUR - MARGE + 30)
-			.attr('text-anchor', 'middle')
-			.style('fill', 'white')
-			.style('font-weight', 'bold')
-			.text('📦 Tapis roulant');
-
-		// Groupe pour les livres du tapis
+		   .attr('class', 'tapis').attr('x', MARGE).attr('y', HAUTEUR - MARGE - 20)
+		   .attr('width', LARGEUR - 2*MARGE).attr('height', 60).attr('rx', 10).attr('ry', 10)
+		   .attr('stroke', 'black').attr('stroke-width', 2);
 		svg.append('g').attr('class', 'tapis-livres');
 
-		// 5 étagères horizontales
 		const nbEtageres = 5;
 		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / nbEtageres;
 
 		for (let i = 0; i < nbEtageres; i++) {
 			const yEtagere = MARGE + i * espaceEtagere;
-			
-			// Fond étagère
 			svg.append('rect')
-				.attr('class', 'etagere-bg')
-				.attr('x', MARGE)
-				.attr('y', yEtagere - 5)
-				.attr('width', LARGEUR - 2*MARGE)
-				.attr('height', 70)
-				.attr('rx', 5);
-
-			// Ligne étagère
+				.attr('class', 'etagere-bg').attr('x', MARGE).attr('y', yEtagere - 5)
+				.attr('width', LARGEUR - 2*MARGE).attr('height', 70);
 			svg.append('line')
-			   .attr('class', 'etagere-line')
-			   .attr('x1', MARGE)
-			   .attr('y1', yEtagere + 60)
-			   .attr('x2', LARGEUR - MARGE)
-			   .attr('y2', yEtagere + 60);
-
-			// Label
+			   .attr('class', 'etagere-line').attr('x1', MARGE).attr('y1', yEtagere + 60)
+			   .attr('x2', LARGEUR - MARGE).attr('y2', yEtagere + 60);
 			svg.append('text')
-				.attr('x', MARGE - 15)
-				.attr('y', yEtagere + 35)
-				.attr('text-anchor', 'end')
-				.style('fill', '#333')
-				.style('font-weight', 'bold')
-				.style('font-size', '14px')
-				.text(`${i+1}`);
-
-			// Groupe pour livres de cette étagère
+				.attr('x', MARGE - 15).attr('y', yEtagere + 35).attr('text-anchor', 'end')
+				.style('fill', '#333').style('font-weight', 'bold').text(`${i+1}`);
 			svg.append('g')
-				.attr('class', `etagere-livres-${i}`)
-				.attr('data-etagere', i);
+				.attr('class', `etagere-livres-${i}`).attr('data-etagere', i);
 		}
 	}
 
 	// ====================== AJOUTER LIVRE AU TAPIS ======================
-	
 	function ajouterLivreAuTapis(livre) {
 		const groupeTapis = svg.select('.tapis-livres');
-		
-		// Position initiale: hors écran à droite
 		const xDepart = LARGEUR;
 		const yPos = HAUTEUR - MARGE + 5;
-		
-		// Position d'arrivée: au centre du tapis
 		const xArrivee = LARGEUR / 2 - 42.5;
 
 		const livreSVG = dessinerLivre(groupeTapis, livre, xDepart, yPos);
 		
-		// Animation d'arrivée de droite à gauche (plus lente)
 		livreSVG.transition()
-			.duration(3000) // Plus lent: 3 secondes
+			.duration(2500)
 			.attr('transform', `translate(${xArrivee},${yPos})`)
 			.on('end', function() {
-				// Une fois arrivé, activer le drag
 				d3.select(this).call(drag);
 			});
 	}
 
 	// ====================== DESSINER UN LIVRE ======================
-	
 	function dessinerLivre(groupe, livre, x, y) {
 		const formats = { poche: 35, medium: 45, grand: 55, maxi: 65 };
 		const h = formats[livre.format] || 45;
-		
-		const couleurs = {
-			roman: '#3498db', sf: '#9b59b6', policier: '#e67e22',
-			'théâtre': '#e74c3c', aventures: '#16a085', 'poésie': '#f39c12',
-			thriller: '#c0392b', feelgood: '#1abc9c', essai: '#95a5a6',
-			fantasy: '#8e44ad', humour: '#f1c40f'
-		};
+		const couleurs = { roman: '#3498db', sf: '#9b59b6', policier: '#e67e22', 'théâtre': '#e74c3c', aventures: '#16a085', 'poésie': '#f39c12', thriller: '#c0392b', feelgood: '#1abc9c', essai: '#95a5a6', fantasy: '#8e44ad', humour: '#f1c40f' };
 		const couleur = couleurs[livre.genre] || '#7f8c8d';
 
 		const g = groupe.append('g')
-			.datum(livre)
-			.attr('transform', `translate(${x},${y})`)
-			.attr('class', 'livre');
+			.datum(livre).attr('transform', `translate(${x},${y})`).attr('class', 'livre');
 
 		g.append('rect')
-			.attr('width', 85)
-			.attr('height', h)
-			.attr('fill', couleur)
-			.attr('stroke', '#2c3e50')
-			.attr('stroke-width', 2)
-			.attr('rx', 3);
+			.attr('width', 85).attr('height', h).attr('fill', couleur).attr('stroke', '#2c3e50').attr('stroke-width', 2);
 
 		g.append('text')
-			.attr('x', 42.5)
-			.attr('y', h/2 - 3)
-			.attr('text-anchor', 'middle')
-			.style('font-size', '10px')
-			.style('fill', 'white')
-			.style('font-weight', 'bold')
-			.style('pointer-events', 'none')
+			.attr('x', 42.5).attr('y', h/2 - 3).attr('text-anchor', 'middle').style('font-size', '10px').style('fill', 'white').style('font-weight', 'bold').style('pointer-events', 'none')
 			.text(livre.nom || livre.auteur.substring(0, 10));
 
 		g.append('text')
-			.attr('x', 42.5)
-			.attr('y', h/2 + 10)
-			.attr('text-anchor', 'middle')
-			.style('font-size', '8px')
-			.style('fill', 'white')
-			.style('pointer-events', 'none')
+			.attr('x', 42.5).attr('y', h/2 + 10).attr('text-anchor', 'middle').style('font-size', '8px').style('fill', 'white').style('pointer-events', 'none')
 			.text(livre.genre);
 		
-		// Ajouter les événements de survol pour le tooltip
-		g.on('mouseover', function(event, d) {
-			afficherTooltip(event, d);
-		})
-		.on('mousemove', function(event) {
-			deplacerTooltip(event);
-		})
-		.on('mouseout', function() {
-			cacherTooltip();
-		});
+		g.on('mouseover', (event, d) => { afficherTooltip(event, d); })
+		 .on('mousemove', (event) => { deplacerTooltip(event); })
+		 .on('mouseout', cacherTooltip);
 		
 		return g;
 	}
 
 	// ====================== TOOLTIP ======================
-	
 	function afficherTooltip(event, livre) {
-		const html = `
-			<div class="titre">${livre.titre}</div>
-			<div class="info">📚 Auteur: ${livre.auteur}</div>
-			<div class="info">🎭 Genre: ${livre.genre}</div>
-			<div class="info">📏 Format: ${livre.format}</div>
-			${livre.littérature ? `<div class="info">🌍 Littérature: ${livre.littérature}</div>` : ''}
-		`;
-		
+		const html = `<div class="titre">${livre.titre}</div><div class="info"> AUTEUR: ${livre.auteur}</div><div class="info"> GENRE: ${livre.genre}</div><div class="info"> FORMAT: ${livre.format}</div>${livre.littérature ? `<div class="info"> LITTERATURE: ${livre.littérature}</div>` : ''}`;
 		tooltip.innerHTML = html;
 		tooltip.classList.add('visible');
 		deplacerTooltip(event);
 	}
-	
 	function deplacerTooltip(event) {
 		const plateauRect = document.getElementById('plateau').getBoundingClientRect();
 		tooltip.style.left = (event.pageX - plateauRect.left + 15) + 'px';
 		tooltip.style.top = (event.pageY - plateauRect.top + 15) + 'px';
 	}
-	
 	function cacherTooltip() {
 		tooltip.classList.remove('visible');
 	}
 
-	// ====================== DRAG & DROP AVEC D3 ======================
-	
+	// ====================== DRAG & DROP ======================
 	const drag = d3.drag()
 		.on('start', function(event, d) {
 			d3.select(this).raise().classed('dragging', true);
-			cacherTooltip(); // Cacher le tooltip pendant le drag
+			cacherTooltip();
 		})
 		.on('drag', function(event, d) {
 			d3.select(this).attr('transform', `translate(${event.x}, ${event.y})`);
 		})
 		.on('end', function(event, d) {
 			d3.select(this).classed('dragging', false);
-			
-			// Détecter sur quelle étagère le livre a été déposé
 			const etagereIndex = detecterEtagere(event.y);
 			
 			if (etagereIndex !== -1) {
-				// Calculer la position dans l'étagère
 				const position = calculerPosition(event.x, etagereIndex);
-				
-				// Envoyer au serveur
 				socket.emit('placer-livre', {
 					livreId: d.id,
 					etagereIndex: etagereIndex,
 					position: position
 				});
-				
-				// Retirer du tapis immédiatement (sera redisposé par le serveur)
-				d3.select(this).remove();
-				
 			} else {
 				afficherErreur('Dépose le livre sur une étagère !');
-				// Remettre le livre au centre du tapis
 				const xOriginal = LARGEUR / 2 - 42.5;
 				const yOriginal = HAUTEUR - MARGE + 5;
-				d3.select(this)
-					.transition()
-					.duration(300)
-					.attr('transform', `translate(${xOriginal},${yOriginal})`);
+				d3.select(this).transition().duration(300).attr('transform', `translate(${xOriginal},${yOriginal})`);
 			}
 		});
 
-	// ====================== DÉTECTER L'ÉTAGÈRE ======================
-	
+	// ====================== LOGIQUE DE DÉPÔT ======================
 	function detecterEtagere(y) {
 		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / 5;
-		
 		for (let i = 0; i < 5; i++) {
 			const yEtagere = MARGE + i * espaceEtagere;
-			if (y >= yEtagere - 10 && y <= yEtagere + 70) {
-				return i;
-			}
+			if (y >= yEtagere - 10 && y <= yEtagere + 70) return i;
 		}
 		return -1;
 	}
 
-	// ====================== CALCULER LA POSITION DANS L'ÉTAGÈRE ======================
-	
 	function calculerPosition(x, etagereIndex) {
 		const nbLivres = etageres[etagereIndex].length;
 		const largeurLivre = 90;
-		
 		for (let i = 0; i <= nbLivres; i++) {
 			const xPosition = MARGE + 10 + i * largeurLivre;
-			if (x < xPosition + largeurLivre / 2) {
-				return i;
-			}
+			if (x < xPosition + largeurLivre / 2) return i;
 		}
 		return nbLivres;
 	}
 
-	// ====================== REDESSINER UNE ÉTAGÈRE ======================
-	
 	function redessinerEtagere(etagereIndex) {
 		const groupeEtagere = svg.select(`.etagere-livres-${etagereIndex}`);
 		groupeEtagere.selectAll('*').remove();
-		
 		const espaceEtagere = (HAUTEUR - 2*MARGE - 100) / 5;
 		const yEtagere = MARGE + etagereIndex * espaceEtagere;
 		
 		etageres[etagereIndex].forEach((livre, idx) => {
 			const livreSVG = dessinerLivre(groupeEtagere, livre, MARGE + 10 + idx * 90, yEtagere);
-			// Les livres sur l'étagère ne sont pas draggables
 			livreSVG.style('cursor', 'default');
 		});
 	}
 
-	// ====================== FONCTIONS UTILITAIRES ======================
-	
+	// ====================== FONCTIONS AUXILIAIRE ======================
 	function ajouterMessageChat(nom, message, isSystem = false) {
 		const msgDiv = document.createElement('div');
 		msgDiv.className = isSystem ? 'message system' : 'message';
@@ -593,7 +372,7 @@
 		document.body.appendChild(successDiv);
 		setTimeout(() => successDiv.remove(), 2000);
 	}
-
+	
   </script>
 </body>
 </html>
