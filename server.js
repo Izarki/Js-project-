@@ -1,10 +1,11 @@
 const express = require('express');
 const app = express();
-const http = require('http')
+const http = require('http');
 const server = http.createServer(app);
 const io = require('socket.io')(server);
+const fs = require('fs');
 
-// ======================
+// ====================== DONNÉES ======================
 const LIVRES = [{"titre":"La vie devant soi", "auteur":"Emile Ajar", "nom":"Ajar", "genre":"roman", "format":"medium"},
 {"titre":"Antigone", "auteur":"Jean Anouilh", "nom":"Anouilh", "genre":"théâtre", "format":"poche"},
 {"titre":"Fondation", "auteur":"Isaac Asimov", "nom":"Asimov", "genre":"sf", "littérature":"anglo-saxonne", "format":"poche"},
@@ -160,135 +161,140 @@ const LIVRES = [{"titre":"La vie devant soi", "auteur":"Emile Ajar", "nom":"Ajar
 {"titre":"Germinal", "auteur":"Emile Zola", "nom":"Zola", "genre":"roman", "format":"medium"},
 {"titre":"L'assommoir", "auteur":"Emile Zola", "nom":"Zola", "genre":"roman", "format":"medium"},
 {"titre":"La bête humaine", "auteur":"Emile Zola", "nom":"Zola", "genre":"roman", "format":"medium"}]
-
-// ======================pu
+// ====================== ÉTAT DU JEU ======================
 let joueurs = {};
-let ordreJoueurs = [];
 let partie = {
 	enCours: false,
-	tourIndex: 0,
 	tapis: [],
-	livreSuivantTimer: null
+	etageres: [[], [], [], [], []], // Étagères communes à tous les joueurs
+	livreSuivantTimer: null,
+	maxLivres: 30,
+	livresDistribues: 0
 };
 
-// ======================
+// ====================== ROUTE HTTP ======================
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
+	res.sendFile(__dirname + '/index.html');
 });
 
-
-// ======================
+// ====================== CONNEXION SOCKET ======================
 io.on('connection', (socket) => {
-	console.log("Un utilisateur s'est connecté");
+	console.log(`[CONNEXION] Nouvelle connexion: ${socket.id}`);
 
-// ------------------ 
+	// ========== PHASE 1: ENTRÉE DES JOUEURS ==========
 	socket.on('entree', (nom) => {
 		nom = nom.trim();
 		
-		if (!nom || nom.length  === 0) {
+		// Validation du nom
+		if (!nom || nom.length === 0) {
 			socket.emit('erreur-entree', 'Le nom ne peut pas être vide.');
 			return;
 		}
 
-		if(joueurs[nom]) {
+		if (joueurs[nom]) {
 			socket.emit('erreur-entree', 'Ce nom est déjà pris. Choisissez-en un autre.');
 			return;
 		}
 
-		if (ordreJoueurs.length >= 2) {
+		if (Object.keys(joueurs).length >= 2) {
 			socket.emit('erreur-entree', 'La partie est déjà complète (2 joueurs).');
 			return;
 		}
 
+		// Enregistrement du joueur
 		socket.nom = nom;
 		joueurs[nom] = {
 			nom: nom,
 			socketId: socket.id,
-			points: 0,
-			etageres: [[], [], [], [], []]
+			points: 0
 		};
-		ordreJoueurs.push(nom);
 
-		console.log(`${nom} a rejoint la partie. Total joueurs: ${ordreJoueurs.length}`);	
+		console.log(`[ENTRÉE] ${nom} a rejoint la partie.`);
 		
+		// Confirmation au joueur
 		socket.emit('entree-validee', {
 			nom: nom,
 			joueurs: Object.values(joueurs)
 		});
 		
+		// Mise à jour pour tous
 		io.emit('joueurs-maj', {
 			joueurs: Object.values(joueurs),
-			nbJoueurs: ordreJoueurs.length
+			nbJoueurs: Object.keys(joueurs).length
 		});
 
-		if (ordreJoueurs.length === 2 && !partie.enCours) {
-			demarrerPartie();	
-			}
+		// Démarrage si 2 joueurs
+		if (Object.keys(joueurs).length === 2 && !partie.enCours) {
+			setTimeout(() => demarrerPartie(), 2000);
+		}
 	});
 
+	// ========== PHASE 2: PLACEMENT DES LIVRES ==========
 	socket.on('placer-livre', (data) => {
-
 		const nomJoueur = socket.nom;
+
+		if (!nomJoueur || !joueurs[nomJoueur]) {
+			socket.emit('erreur', 'Joueur non identifié');
+			return;
+		}
 
 		if (!partie.enCours) {
 			socket.emit('erreur', 'Aucune partie en cours');
 			return;
 		}
 
-		if (ordreJoueurs[partie.tourIndex] !== nomJoueur) {
-			socket.emit('erreur', "Ce n'est pas votre tour");
-			return;
-		}
-
+		// Vérifier que le livre existe sur le tapis
 		const indexLivre = partie.tapis.findIndex(l => l.id === data.livreId);
 		if (indexLivre === -1) {
 			socket.emit('erreur', "Le livre n'est pas sur le tapis");
 			return;
 		}
 
+		// Vérifier l'étagère
 		if (data.etagereIndex < 0 || data.etagereIndex > 4) {
 			socket.emit('erreur', "Étagère invalide");
 			return;
 		}
 
+		// Retirer le livre du tapis
 		const livre = partie.tapis.splice(indexLivre, 1)[0];
 
-		const joueur = joueurs[nomJoueur];
-		joueur.etageres[data.etagereIndex].splice(data.position, 0, livre);
+		// Placer le livre sur l'étagère commune
+		partie.etageres[data.etagereIndex].splice(data.position, 0, livre);
 
-		console.log(`${nomJoueur} place "${livre.titre}" sur l'étagère ${data.etagereIndex} à la position ${data.position}`);
+		console.log(`[PLACEMENT] ${nomJoueur} place "${livre.titre}" sur l'étagère ${data.etagereIndex} à la position ${data.position}`);
 
-		const pointsGagnes = calculerPoints(joueur.etageres[data.etagereIndex], data.position);
-		joueur.points += pointsGagnes;
+		// Calculer les points
+		const pointsGagnes = calculerPoints(partie.etageres[data.etagereIndex], data.position);
+		joueurs[nomJoueur].points += pointsGagnes;
 
 		if (pointsGagnes > 0) {
-			console.log(`${nomJoueur} gagne ${pointsGagnes} points`);
+			console.log(`[POINTS] ${nomJoueur} gagne ${pointsGagnes} points (total: ${joueurs[nomJoueur].points})`);
 		}
 
+		// Notifier tous les joueurs avec les étagères complètes
 		io.emit('livre-place', {
 			joueur: nomJoueur,
 			livre: livre,
 			etagereIndex: data.etagereIndex,
 			position: data.position,
 			pointsGagnes: pointsGagnes,
-			nouveauScore: joueur.points
+			nouveauScore: joueurs[nomJoueur].points,
+			etageres: partie.etageres // Envoyer l'état complet des étagères
 		});
 
 		io.emit('maj-tapis', partie.tapis);
 		io.emit('maj-joueurs', Object.values(joueurs));
-
-		passerAuTourSuivant();
 	});
 
-	// ------------------
-	// CHAT
+	// ========== PHASE 3: CHAT ==========
 	socket.on('message', (msg) => {
 		if (!socket.nom) return;
 
 		msg = msg.trim();
 		if (msg.length === 0) return;
 
-		console.log(`Message de ${socket.nom}: ${msg}`);
+		console.log(`[CHAT] ${socket.nom}: ${msg}`);
 
 		io.emit('message', {
 			nom: socket.nom,
@@ -297,102 +303,127 @@ io.on('connection', (socket) => {
 		});
 	});
 
-	// ------------------
-	// DESCONEXIÓN
+	// ========== PHASE 4: DÉCONNEXION ==========
 	socket.on('disconnect', () => {
 		if (!socket.nom) return;
 
-		const nom=socket.nom;;
-		console.log(`${nom} s'est déconnecté.`);
+		const nom = socket.nom;
+		console.log(`[DÉCONNEXION] ${nom} s'est déconnecté.`);
 
 		delete joueurs[nom];
-		ordreJoueurs = ordreJoueurs.filter(n => n !== nom);
 
+		// Si une partie est en cours, la terminer
 		if (partie.enCours) {
-			partie.enCours = false;
-			clearTimeout(partie.livreSuivantTimer);
-			partie.tapis = [];
-			partie.tourIndex = 0;
-
-			io.emit('partie-terminee', {
-				raison: `${nom} s'est déconnecté.`,
-				message: 'La partie est terminée.'
-			});
+			terminerPartie(`${nom} s'est déconnecté.`);
 		}
 
 		io.emit('joueurs-maj', {
 			joueurs: Object.values(joueurs),
-			nbJoueurs: ordreJoueurs.length
+			nbJoueurs: Object.keys(joueurs).length
 		});
 	});
 });
 
-// ======================
+// ====================== GESTION DE LA PARTIE ======================
+
 function demarrerPartie() {
 	partie.enCours = true;
-	partie.tourIndex = 0;
 	partie.tapis = [];
+	partie.etageres = [[], [], [], [], []]; // Reset des étagères communes
+	partie.livresDistribues = 0;
 
-	console.log("La partie commence !");
+	console.log("[PARTIE] La partie commence !");
 	
-	io.emit('partie-commence', {
-		ordreJoueurs: ordreJoueurs,
-		premierJoueur: ordreJoueurs[0]
+	io.emit('partie-demarre', {
+		message: 'La partie commence !',
+		maxLivres: partie.maxLivres
 	});
 
-	for (let i = 0; i < 3; i++) {
-		ajouterLivreAuTapis();
-	}
-
-	notifierTour();
+	// Ajouter 2 livres initiaux
+	setTimeout(() => ajouterLivreAuTapis(), 1000);
+	setTimeout(() => ajouterLivreAuTapis(), 3000);
 }
 
 function ajouterLivreAuTapis() {
 	if (!partie.enCours) return;
 
+	// Vérifier si on a atteint le maximum de livres
+	if (partie.livresDistribues >= partie.maxLivres) {
+		terminerPartie('Tous les livres ont été distribués !');
+		return;
+	}
+
 	const livreBase = LIVRES[Math.floor(Math.random() * LIVRES.length)];
 	const livre = {
 		...livreBase,
-		id: Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+		id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+		timestamp: Date.now()
 	};
 
 	partie.tapis.push(livre);
+	partie.livresDistribues++;
+
+	console.log(`[LIVRE] Nouveau livre ajouté: "${livre.titre}" (${partie.livresDistribues}/${partie.maxLivres})`);
 
 	io.emit('nouveau-livre', livre);
 	io.emit('maj-tapis', partie.tapis);
 
-	const delai = 8000 + Math.random() * 7000;
+	// Programmer le prochain livre (entre 8 et 12 secondes)
+	const delai = 8000 + Math.random() * 4000;
 	partie.livreSuivantTimer = setTimeout(ajouterLivreAuTapis, delai);
+
+	// Programmer la suppression du livre s'il n'est pas pris (20 secondes)
+	setTimeout(() => retirerLivreDuTapis(livre.id), 20000);
 }
 
-function notifierTour() {
-	if (!partie.enCours) return;
-
-	const joueurActuel = ordreJoueurs[partie.tourIndex];
-	const joueur = joueurs[joueurActuel];
-
-	console.log(`C'est le tour de ${joueurActuel}`);
-	
-	io.emit('tour-joueur', {
-		joueur: joueurActuel,
-		tourIndex: partie.tourIndex
-	});
-
-	if (joueur && joueur.socketId) {
-		io.to(joueur.socketId).emit('votre-tour');
+function retirerLivreDuTapis(livreId) {
+	const index = partie.tapis.findIndex(l => l.id === livreId);
+	if (index !== -1) {
+		const livre = partie.tapis.splice(index, 1)[0];
+		console.log(`[LIVRE] Livre retiré du tapis: "${livre.titre}"`);
+		io.emit('livre-retire', { livreId: livreId });
+		io.emit('maj-tapis', partie.tapis);
 	}
 }
 
-function passerAuTourSuivant() {
-	if (!partie.enCours) return;
-	partie.tourIndex = (partie.tourIndex + 1) % ordreJoueurs.length;
-	notifierTour();
+function terminerPartie(raison) {
+	partie.enCours = false;
+	clearTimeout(partie.livreSuivantTimer);
+	
+	console.log(`[FIN] Partie terminée: ${raison}`);
+
+	// Déterminer le gagnant
+	const joueursArray = Object.values(joueurs);
+	if (joueursArray.length === 2) {
+		joueursArray.sort((a, b) => b.points - a.points);
+		const gagnant = joueursArray[0];
+		const perdant = joueursArray[1];
+
+		io.emit('partie-terminee', {
+			raison: raison,
+			gagnant: gagnant.nom,
+			scoreGagnant: gagnant.points,
+			perdant: perdant.nom,
+			scorePerdant: perdant.points,
+			message: gagnant.points === perdant.points 
+				? `Égalité ! ${gagnant.nom} et ${perdant.nom} ont ${gagnant.points} points.`
+				: `${gagnant.nom} gagne avec ${gagnant.points} points contre ${perdant.points} !`
+		});
+	} else {
+		io.emit('partie-terminee', {
+			raison: raison,
+			message: 'La partie est terminée.'
+		});
+	}
+
+	partie.tapis = [];
+	partie.etageres = [[], [], [], [], []];
 }
+
+// ====================== CALCUL DES POINTS ======================
 
 function calculerPoints(etagere, positionNouveau) {
 	let points = 0;
-
-	const livreNouveau = etagere[positionNouveau];
 
 	points += verifierMemeAuteur(etagere, positionNouveau);
 	points += verifierMemeGenre(etagere, positionNouveau);
@@ -408,7 +439,8 @@ function verifierMemeAuteur(etagere, pos) {
 	const livre = etagere[pos];
 	let count = 1;
 
-	for (let i = pos -1; i >= 0; i--) {
+	// Compter à gauche
+	for (let i = pos - 1; i >= 0; i--) {
 		if (etagere[i].auteur === livre.auteur) {
 			count++;
 		} else {
@@ -416,7 +448,8 @@ function verifierMemeAuteur(etagere, pos) {
 		}
 	}
 
-	for (let i = pos +1; i < etagere.length; i++) {
+	// Compter à droite
+	for (let i = pos + 1; i < etagere.length; i++) {
 		if (etagere[i].auteur === livre.auteur) {
 			count++;
 		} else {
@@ -425,13 +458,12 @@ function verifierMemeAuteur(etagere, pos) {
 	}
 
 	if (count >= 2) {
-		const points = count * (count -1);
-		console.log(`${count} livre du meme auteur (${livre.auteur}) = ${points} pts`);
+		const points = count * (count - 1);
+		console.log(`  → ${count} livres du même auteur (${livre.auteur}) = ${points} pts`);
 		return points;
 	}
 	return 0;
 }
-
 
 function verifierMemeGenre(etagere, pos) {
 	if (etagere.length < 3) return 0;
@@ -457,7 +489,7 @@ function verifierMemeGenre(etagere, pos) {
 
 	if (count >= 3) {
 		const points = count + (count - 2);
-		console.log(`${count} livres du meme genre (${livre.genre}) = ${points} pts`);
+		console.log(`  → ${count} livres du même genre (${livre.genre}) = ${points} pts`);
 		return points;
 	}
 
@@ -468,7 +500,6 @@ function verifierMemeLitterature(etagere, pos) {
 	const livre = etagere[pos];
 
 	if (!livre.littérature) return 0;
-
 	if (etagere.length < 3) return 0;
 
 	let count = 1;
@@ -491,7 +522,7 @@ function verifierMemeLitterature(etagere, pos) {
 
 	if (count >= 3) {
 		const points = count * 2;
-		console.log(`${count} livres de la meme litterature (${livre.littérature}) = ${points} pts`);
+		console.log(`  → ${count} livres de la même littérature (${livre.littérature}) = ${points} pts`);
 		return points;
 	}
 	return 0;
@@ -520,15 +551,15 @@ function verifierOrdreAlphabetique(etagere, pos) {
 
 	if (count >= 3) {
 		const points = count * 3;
-		console.log(`${count} livres en ordre alphabetique = ${points} pts`);
+		console.log(`  → ${count} livres en ordre alphabétique = ${points} pts`);
 		return points;
 	}
 
 	return 0;
 }
 
-// ======================
+// ====================== DÉMARRAGE DU SERVEUR ======================
 const PORT = 8888;
 server.listen(PORT, () => {
-  console.log(`Serveur écoute en http://localhost:${PORT}`);
+	console.log(`[SERVEUR] Écoute sur http://localhost:${PORT}`);
 });
