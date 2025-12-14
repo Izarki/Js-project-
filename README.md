@@ -10,6 +10,7 @@ Isaza Acosta Gabriel
 
 
 Systeme de pts: 
+
 Même Auteur (2+ livres consécutifs) : 
 
   Formule : nblivre × (nblivre - 1)
