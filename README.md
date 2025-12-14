@@ -14,6 +14,7 @@ Systeme de pts:
 Même Auteur (2+ livres consécutifs) : 
 
   Formule : nblivre × (nblivre - 1)
+  
   Exemples :
 
   2 livres : 2 points
@@ -24,6 +25,7 @@ Même Auteur (2+ livres consécutifs) :
 Même Genre (3+ livres consécutifs):
 
   Formule : nblivre + (nblivre - 2)
+  
   Exemples :
 
   3 livres : 4 points
@@ -46,6 +48,7 @@ Concerne : anglo-saxonne, russe, espagnole, etc.
 Ordre Alphabétique (3+ livres consécutifs):
 
   Formule : nblivre × 3
+  
   Exemples :
   
   3 livres : 9 points
