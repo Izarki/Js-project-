@@ -178,7 +178,6 @@ app.get('/', (req, res) => {
 
 // ====================== CONNEXION SOCKET ======================
 io.on('connection', (socket) => {
-	// console.log(`[CONNEXION] Nouvelle connexion: ${socket.id}`);
 
 	// ========== PHASE 1: ENTRÉE DES JOUEURS ==========
 	socket.on('entree', (nom) => {
@@ -228,8 +227,7 @@ io.on('connection', (socket) => {
 			pointsGagnes: pointsGagnes, nouveauScore: joueurs[nomJoueur].points, etageres: partie.etageres
 		});
 
-		io.emit('maj-tapis', partie.tapis);
-		io.emit('maj-joueurs', Object.values(joueurs));
+		io.emit('joueurs-maj', Object.values(joueurs));
 	});
 
 	// ========== PHASE 3: CHAT ==========
@@ -275,31 +273,26 @@ function ajouterLivreAuTapis() {
 		return;
 	}
 
-	// WARNING: Assuming LIVRES constant is available from the original code
 	const livreBase = LIVRES[Math.floor(Math.random() * LIVRES.length)];
 	const livre = { ...livreBase, id: Date.now() + '-' + Math.random().toString(36).substr(2, 9), timestamp: Date.now() };
 
 	partie.tapis.push(livre);
 	partie.livresDistribues++;
 
-	// console.log(`[LIVRE] Nouveau livre ajouté: "${livre.titre}" (${partie.livresDistribues}/${partie.maxLivres})`);
 
 	io.emit('nouveau-livre', livre);
-	io.emit('maj-tapis', partie.tapis);
 
 	const delai = 8000 + Math.random() * 4000;
 	partie.livreSuivantTimer = setTimeout(ajouterLivreAuTapis, delai);
 
-	setTimeout(() => retirerLivreDuTapis(livre.id), 20000);
+	setTimeout(() => retirerLivreDuTapis(livre.id), 10000);
 }
 
 function retirerLivreDuTapis(livreId) {
 	const index = partie.tapis.findIndex(l => l.id === livreId);
 	if (index !== -1) {
 		const livre = partie.tapis.splice(index, 1)[0];
-		// console.log(`[LIVRE] Livre retiré du tapis: "${livre.titre}"`);
 		io.emit('livre-retire', { livreId: livreId });
-		io.emit('maj-tapis', partie.tapis);
 	}
 }
 
