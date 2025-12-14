@@ -167,8 +167,8 @@ let partie = {
 	tapis: [],
 	etageres: [[], [], [], [], []], 
 	livreSuivantTimer: null,
-	maxLivres: 30,
-	livresDistribues: 0
+	livresDistribues: 0,
+	maxLivres: 30
 };
 
 // ====================== ROUTE HTTP ======================
@@ -261,8 +261,9 @@ function demarrerPartie() {
 	
 	io.emit('partie-demarre', { message: 'La partie commence !', maxLivres: partie.maxLivres });
 
-	setTimeout(ajouterLivreAuTapis, 1000);
-	setTimeout(ajouterLivreAuTapis, 3000);
+	setTimeout(ajouterLivreAuTapis, 2200);
+	setTimeout(ajouterLivreAuTapis, 4000);
+	setTimeout(ajouterLivreAuTapis, 6000);
 }
 
 function ajouterLivreAuTapis() {
@@ -272,20 +273,19 @@ function ajouterLivreAuTapis() {
 		terminerPartie('Tous les livres ont été distribués !');
 		return;
 	}
-
-	const livreBase = LIVRES[Math.floor(Math.random() * LIVRES.length)];
-	const livre = { ...livreBase, id: Date.now() + '-' + Math.random().toString(36).substr(2, 9), timestamp: Date.now() };
-
-	partie.tapis.push(livre);
 	partie.livresDistribues++;
 
+	const livreBase = LIVRES[Math.floor(Math.random() * LIVRES.length)];
+	const livre = { ...livreBase, id:livresDistribues, timestamp: Date.now() };
+
+	partie.tapis.push(livre);
 
 	io.emit('nouveau-livre', livre);
 
-	const delai = 8000 + Math.random() * 4000;
+	const delai = 8000 ;
 	partie.livreSuivantTimer = setTimeout(ajouterLivreAuTapis, delai);
 
-	setTimeout(() => retirerLivreDuTapis(livre.id), 10000);
+	setTimeout(() => retirerLivreDuTapis(livre.id), 18000);
 }
 
 function retirerLivreDuTapis(livreId) {
@@ -305,8 +305,7 @@ function terminerPartie(raison) {
 	const joueursArray = Object.values(joueurs);
 	if (joueursArray.length === 2) {
 		joueursArray.sort((a, b) => b.points - a.points);
-		const gagnant = joueursArray[0];
-		const perdant = joueursArray[1];
+		const gagnant = null;
 
 		const message = gagnant.points === perdant.points 
 			? `Égalité ! ${gagnant.nom} et ${perdant.nom} ont ${gagnant.points} points.`
@@ -370,10 +369,8 @@ function verifierOrdreAlphabetique(etagere, pos) {
 	if (etagere.length < 3) return 0;
 	let count = 1;
 
-	// Check left
 	for (let i = pos - 1; i >= 0 && etagere[i].titre <= etagere[i + 1].titre; i--) count++;
 
-	// Check right
 	for (let i = pos + 1; i < etagere.length && etagere[i - 1].titre <= etagere[i].titre; i++) count++;
 
 	if (count >= 3) return count * 3;
