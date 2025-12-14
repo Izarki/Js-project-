@@ -4,46 +4,50 @@
 	<meta charset="UTF-8">
 	<title>Bibliothèque Multijoueur - HAI305I</title>
 	<style>
-	body { margin:0; font-family: Arial, sans-serif; background:#f4f4f4; }
-	#login, #jeu { width:100vw; height:100vh; display:flex; }
-	#login { background:#333; color:white; align-items:center; justify-content:center; flex-direction:column; }
-	input, button { padding:10px; margin:10px; font-size:1.2em; }
-	button { background:#3498db; color:white; border:none; cursor:pointer; }
-	
-	#infos { position:fixed; top:0; left:0; right:0; background:rgba(0,0,0,0.8); color:white; padding:10px 20px; z-index:10; display:flex; justify-content:space-between; }
-	#main-container { display:flex; width:90%; height:90%; padding-top:50px; }
-	#plateau { flex:1; display:flex; justify-content:center; align-items:center; padding:20px; position:relative; }
-	
-	#chat-panel { width:350px; background:#2c3e50; display:flex; flex-direction:column; }
-	#chat-header { background:#34495e; padding:15px; color:white; font-weight:bold; }
-	#chat { flex:1; overflow-y:auto; padding:10px; color:white; }
-	#chat .message { margin-bottom:8px; padding:8px; border-radius:5px; }
-	#chat .message .nom { color:#3498db; font-weight:bold; }
-	#chat .message.system { background:rgba(46,204,113,0.2); }
-	#chat-input { width:100%; padding:10px; border:none; box-sizing:border-box; }
-	
-	svg { background:#fff; border:2px solid #333; }
-	.livre { cursor: move; }
-	.tapis { fill: #8B4513; }
-	.etagere-line { stroke: #333; stroke-width: 4; }
-	.etagere-bg { fill: #ecf0f1; opacity: 0.3; }
-	
-	#tooltip {
-		position: absolute; background: rgba(0, 0, 0, 0.9); color: white; padding: 12px; border-radius: 8px;
-		pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 1000;
-	}
-	#tooltip.visible { opacity: 1; }
-	
-	.error-msg, .success-msg { position:fixed; top:60px; left:50%; transform:translateX(-50%); padding:15px 30px; border-radius:5px; z-index:100; animation:slideDown 0.3s; }
-	.error-msg { background:#e74c3c; color:white; }
-	.success-msg { background:#2ecc71; color:white; }
-	
-	#modal-fin { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; }
-	#modal-fin.visible { display:flex; }
-	#modal-contenu { background:white; padding:40px; border-radius:10px; text-align:center; }
-	
-	@keyframes slideDown { from { top:-50px; opacity:0; } to { top:60px; opacity:1; } }
-	</style>
+		body { margin:0; font-family: Arial, sans-serif; }
+		#login, #jeu { width:100vw; height:100vh; display:flex; }
+		#login { background:#333; color:white; align-items:center; justify-content:center; flex-direction:column; }
+		input, button { padding:10px; margin:10px; font-size:1.1em; }
+		button { background:#3498db; color:white; border:none; cursor:pointer; }
+
+		#infos { position:fixed; top:0; left:0; right:0; background:#444; color:white; padding:10px 20px; z-index:10; display:flex; justify-content:space-between; }
+		#main-container { display:flex; width:100%; height:100%; padding-top:40px; }
+		#plateau { flex:1; display:flex; justify-content:center; align-items:center; position:relative; }
+
+		#chat-panel { width:400px; height: 700px; background:#f0f0f0; border-left:1px solid #ccc; display:flex; flex-direction:column; margin-top: 25px ;margin-right:50px; }
+		#chat-header { background:#ddd; padding:10px; font-weight:bold; }
+		#chat { flex:1; overflow-y:auto; padding:10px; }
+		#chat .message { margin-bottom:5px; }
+		#chat .message .nom { font-weight:bold; color:#333; }
+		#chat .message.system { background:#e9f7ef; border-left:3px solid #2ecc71; padding-left:5px; }
+		#chat-input { width:90%; padding:10px; border:2px solid #777 ; box-sizing:border-box; }
+
+		svg { background:#fff; border:1px solid #333; }
+		.livre { cursor: move; }
+		.tapis { fill: #8B4513; }
+		.etagere-line { stroke: #333; stroke-width: 2; }
+		.etagere-bg { fill: #ecf0f1; opacity: 0.1; } 
+
+		#tooltip {
+		    position: absolute; background: black; color: white; padding: 5px; border-radius: 3px;
+		    pointer-events: none; opacity: 0; z-index: 1000;
+		}
+		#tooltip.visible { opacity: 1; }
+
+		.error-msg, .success-msg { 
+		    position:fixed; top:60px; left:50%; 
+		    padding:10px 20px; border-radius:5px; z-index:100;
+		}
+		.error-msg { background:#e74c3c; color:white; }
+		.success-msg { background:#2ecc71; color:white; }
+
+		#modal-fin { 
+		    display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+		    background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; 
+		}
+		#modal-fin.visible { display:flex; }
+		#modal-contenu { background:white; padding:30px; border-radius:5px; text-align:center; }
+</style>
 </head>
 <body>
   <div id="login">
@@ -67,7 +71,7 @@
 		<div id="chat-panel">
 			<div id="chat-header"> Chat</div>
 			<div id="chat"></div>
-			<div id="chat-input-container">
+			<div id="chat-input-div">
 				<input type="text" id="chat-input" placeholder="Message...">
 			</div>
 		</div>
@@ -119,12 +123,12 @@
 		loginDiv.style.display = 'none';
 		jeuDiv.style.display = 'flex';
 		initialiserPlateau();
-		ajouterMessageChat('Système', 'Bienvenue ! En attente d\'un autre joueur...', true);
+		ajouterMessageChat('Système', "Bienvenue ! En attente d'un autre joueur...", true);
 	});
 	socket.on('erreur-entree', (msg) => afficherErreur(msg));
 	socket.on('joueurs-maj', (data) => {
 		if (data.nbJoueurs === 2) {
-			agregarMensajeConsola('Dos jugadores conectados.');
+			agregarMensajeConsola('Deux joueurs conectés.');
 		}
 	});
 
@@ -155,11 +159,8 @@
 		if (data.joueur === monNom) {
 			document.getElementById('monScore').textContent = data.nouveauScore;
 			if (data.pointsGagnes > 0) {
-				ajouterMessageChat('Système', `Tu gagnes ${data.pointsGagnes} points ! `, true);
 				afficherSucces(`+${data.pointsGagnes} points !`);
 			}
-		} else {
-			ajouterMessageChat('Système', `${data.joueur} a placé un livre et gagne ${data.pointsGagnes} points.`, true);
 		}
 		
 		svg.selectAll('.tapis-livres .livre')
@@ -230,26 +231,28 @@
 	// ====================== AJOUTER LIVRE AU TAPIS ======================
 	function ajouterLivreAuTapis(livre) {
 		const groupeTapis = svg.select('.tapis-livres');
-		const xDepart = LARGEUR;
+		const xDepart = MARGE;
 		const yPos = HAUTEUR - MARGE + 5;
-		const xArrivee = LARGEUR / 2 - 42.5;
+		const xArrivee = LARGEUR - MARGE - 85 - Math.random() * (LARGEUR - 2*MARGE - 85);  
 
 		const livreSVG = dessinerLivre(groupeTapis, livre, xDepart, yPos);
 		
+		livreSVG.call(drag);
 		livreSVG.transition()
-			.duration(2500)
-			.attr('transform', `translate(${xArrivee},${yPos})`)
-			.on('end', function() {
-				d3.select(this).call(drag);
-			});
-	}
+			.duration(2000)
+			.ease(d3.easeCubicOut)
+			.attr('transform', `translate(${xArrivee},${yPos})`);
 
+		if (livreSVG.select(this).classed('dragging') == true) {
+			livreSVG.on('.drag', null);
+		}
+	}
 	// ====================== DESSINER UN LIVRE ======================
 	function dessinerLivre(groupe, livre, x, y) {
 		const formats = { poche: 35, medium: 45, grand: 55, maxi: 65 };
 		const h = formats[livre.format] || 45;
-		const couleurs = { roman: '#3498db', sf: '#9b59b6', policier: '#e67e22', 'théâtre': '#e74c3c', aventures: '#16a085', 'poésie': '#f39c12', thriller: '#c0392b', feelgood: '#1abc9c', essai: '#95a5a6', fantasy: '#8e44ad', humour: '#f1c40f' };
-		const couleur = couleurs[livre.genre] || '#7f8c8d';
+		const couleurs = { roman: 'DodgerBlue', sf: 'DarkOrchid', policier: 'Chocolate', théâtre: 'Coral', aventures: 'LightSeaGreen', poésie: 'Orange', thriller: 'Brown', feelgood: 'MediumAquaMarine', essai: 'Darkgrey', fantasy: 'DarkViolet', humour: 'Gold' };
+		const couleur = couleurs[livre.genre] || 'Grey';
 
 		const g = groupe.append('g')
 			.datum(livre).attr('transform', `translate(${x},${y})`).attr('class', 'livre');
