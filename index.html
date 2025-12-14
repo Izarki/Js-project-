@@ -173,13 +173,10 @@
 
 	// ====================== FIN DE PARTIE ======================
 	socket.on('partie-terminee', (data) => {
-		document.getElementById('modal-titre').textContent = data.gagnant ? ' Victoire !' : 'Partie terminée';
+		document.getElementById('modal-titre').textContent = data.gagnant ? ' Gagnant:' : 'Partie terminée';
+
 		let message = data.message;
-		if (data.gagnant && data.gagnant === monNom) {
-			message = `Félicitations ! Vous avez gagné avec ${data.scoreGagnant} points !`;
-		} else if (data.gagnant) {
-			message = `${data.gagnant} gagne avec ${data.scoreGagnant} points contre ${data.scorePerdant}.`;
-		}
+
 		document.getElementById('modal-message').textContent = message;
 		modalFin.classList.add('visible');
 		ajouterMessageChat('Système', data.message, true);
