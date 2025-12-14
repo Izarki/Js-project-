@@ -12,43 +12,43 @@ Isaza Acosta Gabriel
 Systeme de pts: 
 Même Auteur (2+ livres consécutifs) : 
 
-Formule : nblivre × (nblivre - 1)
-Exemples :
+  Formule : nblivre × (nblivre - 1)
+  Exemples :
 
-2 livres : 2 points
-3 livres : 6 points
-4 livres : 12 points
+  2 livres : 2 points
+  3 livres : 6 points
+  4 livres : 12 points
 
 
 Même Genre (3+ livres consécutifs):
 
-Formule : nblivre + (nblivre - 2)
-Exemples :
+  Formule : nblivre + (nblivre - 2)
+  Exemples :
 
-3 livres : 4 points
-4 livres : 6 points
-5 livres : 8 points
+  3 livres : 4 points
+  4 livres : 6 points
+  5 livres : 8 points
 
 
 
 Même Littérature (3+ livres consécutifs):
 
-Formule : nblivre × 2
-Exemples :
-
-3 livres : 6 points
-4 livres : 8 points
-
+  Formule : nblivre × 2
+  Exemples :
+  
+  3 livres : 6 points
+  4 livres : 8 points
+  
 
 Concerne : anglo-saxonne, russe, espagnole, etc.
 
 Ordre Alphabétique (3+ livres consécutifs):
 
-Formule : nblivre × 3
-Exemples :
-
-3 livres : 9 points
-4 livres : 12 points
+  Formule : nblivre × 3
+  Exemples :
+  
+  3 livres : 9 points
+  4 livres : 12 points
 
 
 Basé sur le titre du livre
