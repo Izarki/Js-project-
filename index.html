@@ -230,7 +230,7 @@
 	function ajouterLivreAuTapis(livre) {
 		const groupeTapis = svg.select('.tapis-livres');
 		const xDepart = MARGE;
-		const yPos = HAUTEUR - MARGE + 5;
+		const yPos = HAUTEUR - MARGE* 1.5 + 5;
 		const xArrivee = LARGEUR - MARGE - 85 - Math.random() * (LARGEUR/2 - 100);  
 
 		const livreSVG = dessinerLivre(groupeTapis, livre, xDepart, yPos);
