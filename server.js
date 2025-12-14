@@ -276,13 +276,13 @@ function ajouterLivreAuTapis() {
 	partie.livresDistribues++;
 
 	const livreBase = LIVRES[Math.floor(Math.random() * LIVRES.length)];
-	const livre = { ...livreBase, id:livresDistribues, timestamp: Date.now() };
+	const livre = { ...livreBase, id:partie.livresDistribues, timestamp: Date.now() };
 
 	partie.tapis.push(livre);
 
 	io.emit('nouveau-livre', livre);
 
-	const delai = 8000 ;
+	const delai = 10000 ;
 	partie.livreSuivantTimer = setTimeout(ajouterLivreAuTapis, delai);
 
 	setTimeout(() => retirerLivreDuTapis(livre.id), 18000);
@@ -305,7 +305,8 @@ function terminerPartie(raison) {
 	const joueursArray = Object.values(joueurs);
 	if (joueursArray.length === 2) {
 		joueursArray.sort((a, b) => b.points - a.points);
-		const gagnant = null;
+		const gagnant = joueursArray[0];
+		const perdant = joueursArray[1];
 
 		const message = gagnant.points === perdant.points 
 			? `Égalité ! ${gagnant.nom} et ${perdant.nom} ont ${gagnant.points} points.`
