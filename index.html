@@ -28,11 +28,11 @@
 		.etagere-line { stroke: #333; stroke-width: 2; }
 		.etagere-bg { fill: #ecf0f1; opacity: 0.1; } 
 
-		#tooltip {
+		#InfoL {
 		    position: absolute; background: black; color: white; padding: 5px; border-radius: 3px;
 		    pointer-events: none; opacity: 0; z-index: 1000;
 		}
-		#tooltip.visible { opacity: 1; }
+		#InfoL.visible { opacity: 1; }
 
 		.error-msg, .success-msg { 
 		    position:fixed; top:60px; left:50%; 
@@ -65,7 +65,7 @@
 	
 	<div id="main-container">
 		<div id="plateau">
-			<div id="tooltip"></div>
+			<div id="InfoL"></div>
 		</div>
 		
 		<div id="chat-panel">
@@ -99,13 +99,15 @@
 	const chatDiv = document.getElementById('chat');
 	const chatInput = document.getElementById('chat-input');
 	const modalFin = document.getElementById('modal-fin');
-	const tooltip = document.getElementById('tooltip');
+	const InfoL = document.getElementById('InfoL');
 	let monNom = '';
 	let svg = null;
 	let etageres = [[], [], [], [], []]; 
 	const LARGEUR = 900;
 	const HAUTEUR = 600;
 	const MARGE = 80;
+	let livresDistribues = 0;
+	const MAX_LIVRES = 30;
 
 	// ====================== PHASE 1: CONNEXION ======================
 	btnLogin.onclick = () => {
@@ -128,7 +130,7 @@
 	socket.on('erreur-entree', (msg) => afficherErreur(msg));
 	socket.on('joueurs-maj', (data) => {
 		if (data.nbJoueurs === 2) {
-			agregarMensajeConsola('Deux joueurs conectés.');
+			console.log('Deux joueurs conectés.');
 		}
 	});
 
@@ -139,12 +141,11 @@
 	});
 	
 	socket.on('nouveau-livre', (livre) => {
-		ajouterLivreAuTapis(livre);
+		livresDistribues++;
 		const compteur = document.getElementById('compteurLivres');
-		const match = compteur.textContent.match(/(\d+)\/(\d+)/);
-		if (match) {
-			const nouveau = parseInt(match[1]) + 1;
-			compteur.textContent = `${nouveau}/${match[2]}`;
+		compteur.textContent = `${livresDistribues}/${MAX_LIVRES}`;
+		if (svg) {
+			ajouterLivreAuTapis(livre);
 		}
 	});
 
@@ -233,19 +234,17 @@
 		const groupeTapis = svg.select('.tapis-livres');
 		const xDepart = MARGE;
 		const yPos = HAUTEUR - MARGE + 5;
-		const xArrivee = LARGEUR - MARGE - 85 - Math.random() * (LARGEUR - 2*MARGE - 85);  
+		const xArrivee = LARGEUR - MARGE - 85 - Math.random() * (LARGEUR/2 - 100);  
 
 		const livreSVG = dessinerLivre(groupeTapis, livre, xDepart, yPos);
 		
 		livreSVG.call(drag);
+		
 		livreSVG.transition()
-			.duration(2000)
+			.duration(8000)
 			.ease(d3.easeCubicOut)
 			.attr('transform', `translate(${xArrivee},${yPos})`);
 
-		if (livreSVG.select(this).classed('dragging') == true) {
-			livreSVG.on('.drag', null);
-		}
 	}
 	// ====================== DESSINER UN LIVRE ======================
 	function dessinerLivre(groupe, livre, x, y) {
@@ -268,34 +267,37 @@
 			.attr('x', 42.5).attr('y', h/2 + 10).attr('text-anchor', 'middle').style('font-size', '8px').style('fill', 'white').style('pointer-events', 'none')
 			.text(livre.genre);
 		
-		g.on('mouseover', (event, d) => { afficherTooltip(event, d); })
-		 .on('mousemove', (event) => { deplacerTooltip(event); })
-		 .on('mouseout', cacherTooltip);
+		g.on('mouseover', (event, d) => { afficherInfoL(event, d); })
+		 .on('mousemove', (event) => { deplacerInfoL(event); })
+		 .on('mouseout', cacherInfoL);
 		
 		return g;
 	}
 
-	// ====================== TOOLTIP ======================
-	function afficherTooltip(event, livre) {
+	// ====================== INFO DES LIVRES ======================
+	function afficherInfoL(event, livre) {
 		const html = `<div class="titre">${livre.titre}</div><div class="info"> AUTEUR: ${livre.auteur}</div><div class="info"> GENRE: ${livre.genre}</div><div class="info"> FORMAT: ${livre.format}</div>${livre.littérature ? `<div class="info"> LITTERATURE: ${livre.littérature}</div>` : ''}`;
-		tooltip.innerHTML = html;
-		tooltip.classList.add('visible');
-		deplacerTooltip(event);
+		InfoL.innerHTML = html;
+		InfoL.classList.add('visible');
+		deplacerInfoL(event);
 	}
-	function deplacerTooltip(event) {
+	function deplacerInfoL(event) {
 		const plateauRect = document.getElementById('plateau').getBoundingClientRect();
-		tooltip.style.left = (event.pageX - plateauRect.left + 15) + 'px';
-		tooltip.style.top = (event.pageY - plateauRect.top + 15) + 'px';
+		InfoL.style.left = (event.pageX - plateauRect.left + 15) + 'px';
+		InfoL.style.top = (event.pageY - plateauRect.top + 15) + 'px';
 	}
-	function cacherTooltip() {
-		tooltip.classList.remove('visible');
+	function cacherInfoL() {
+		InfoL.classList.remove('visible');
 	}
 
 	// ====================== DRAG & DROP ======================
 	const drag = d3.drag()
 		.on('start', function(event, d) {
+
+			d3.select(this).interrupt();
+
 			d3.select(this).raise().classed('dragging', true);
-			cacherTooltip();
+			cacherInfoL();
 		})
 		.on('drag', function(event, d) {
 			d3.select(this).attr('transform', `translate(${event.x}, ${event.y})`);
